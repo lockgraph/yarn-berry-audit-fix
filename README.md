@@ -45,7 +45,7 @@ By default, dependencies are installed. After a lockfile-only run, use `yarn ins
 
 Exit codes: `0` for a clean audit, dry run, or `--ignore-unfixed`; `1` for remaining advisories; `2` for an execution error; `130` for interruption. `--ignore-unfixed` only suppresses code `1`.
 
-Each bump lists the advisories it resolves, with CVE IDs and CVSS scores when available. The CLI supplements missing metadata from GitHub's public Advisory API; a custom `--audit-registry` uses only its supplied metadata. Unassigned CVEs fall back to GHSA IDs, and unknown scores are shown as unavailable. Failed supplementary lookups produce warnings without failing the repair.
+Each bump lists the advisories it resolves, with CVE IDs and CVSS scores when available. The CLI supplements missing metadata from GitHub's public Advisory API; a custom `--audit-registry` uses only its supplied metadata. CVSS is displayed only alongside CVE IDs; findings without a CVE show their GHSA ID alone. Unknown CVE scores are shown as unavailable. Failed supplementary lookups produce warnings without failing the repair.
 
 ## API
 

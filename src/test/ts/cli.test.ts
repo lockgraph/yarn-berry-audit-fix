@@ -159,7 +159,7 @@ it('does not contact GitHub when using a custom audit registry', async () => {
   vi.mocked(fixAudit).mockResolvedValue(report({ changes: [{ ...change, advisories: [{ ...advisory, ghsaId: 'GHSA-v6h2-p8h4-qcjw' }] }] }));
   await run('--audit-registry=https://audit.example.org');
   expect(fetch).not.toHaveBeenCalled();
-  expect(console.log).toHaveBeenCalledWith('  GHSA-v6h2-p8h4-qcjw (CVSS unavailable)');
+  expect(console.log).toHaveBeenCalledWith('  GHSA-v6h2-p8h4-qcjw');
 });
 
 it('includes supplementary CVE metadata in JSON while reporting display lookup failures as warnings', async () => {

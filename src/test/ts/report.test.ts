@@ -52,6 +52,9 @@ it('prints CVE scores for actual and proposed changes and uses an explicit fallb
   expect(changeLines(reported, false)).toEqual(['Fixed foo@npm:^1: 1.0.0 -> 1.2.3', '  CVE-2025-5889 (CVSS 3.1)']);
   expect(changeLines(reported, true)[0]).toBe('Would fix foo@npm:^1: 1.0.0 -> 1.2.3');
   expect(changeLines({ ...reported, removed: true }, false)[0]).toContain('removed from graph');
-  expect(changeLines({ ...change, advisories: [{ id: '2', name: 'foo', vulnerable: '*', ghsaId }] }, false)[1]).toBe(`  ${ghsaId} (CVSS unavailable)`);
-  expect(changeLines({ ...change, advisories: [{ id: '2', name: 'foo', vulnerable: '*', cves: [], cvss: { score: 0 } }] }, false)[1]).toBe('  advisory 2 (CVSS 0.0)');
+  expect(changeLines({ ...change, advisories: [{ id: '2', name: 'foo', vulnerable: '*', ghsaId }] }, false)[1]).toBe(`  ${ghsaId}`);
+  expect(changeLines({ ...change, advisories: [{ ...advisory, cves: [], cvss: { score: 7.5 } }] }, false)[1]).toBe(`  ${ghsaId}`);
+  expect(changeLines({ ...change, advisories: [{ id: '2', name: 'foo', vulnerable: '*', cves: [], cvss: { score: 0 } }] }, false)[1]).toBe('  advisory 2');
+  expect(changeLines({ ...change, advisories: [{ ...advisory, cvss: { score: 0 } }] }, false)[1]).toBe('  CVE-2025-5889 (CVSS 0.0)');
+  expect(changeLines({ ...change, advisories: [{ ...advisory, cvss: undefined }] }, false)[1]).toBe('  CVE-2025-5889 (CVSS unavailable)');
 });

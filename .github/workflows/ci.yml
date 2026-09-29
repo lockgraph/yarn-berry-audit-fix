@@ -1,3 +1,4 @@
+# npm trusted publishing pins this filename to ci.yml.
 name: CI
 
 on: [push, pull_request, workflow_dispatch]
@@ -25,6 +26,12 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build:smoke
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build
+          path: target/main
+          retention-days: 1
+          if-no-files-found: error
       - uses: actions/upload-artifact@v7
         with:
           name: runtime-smoke
@@ -64,3 +71,61 @@ jobs:
           name: runtime-smoke
           path: target
       - run: npm run test:smoke
+
+  release:
+    name: Release
+    needs: [test, smoke]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          package-manager-cache: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: build
+          path: target/main
+      # Publish the tested build; project dependencies are not installed here.
+      - name: Release via zx-semrel (OIDC)
+        env:
+          NPM_OIDC: 'true'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_USER: x-access-token
+          GIT_BRANCH: master
+          GIT_AUTHOR_NAME: ${{ vars.GIT_AUTHOR_NAME }}
+          GIT_AUTHOR_EMAIL: ${{ vars.GIT_AUTHOR_EMAIL }}
+          GIT_COMMITTER_NAME: ${{ vars.GIT_COMMITTER_NAME }}
+          GIT_COMMITTER_EMAIL: ${{ vars.GIT_COMMITTER_EMAIL }}
+          GIT_SIGN_KEY: ${{ secrets.GIT_SIGN_KEY }}
+        run: npm run release
+
+  post-release:
+    name: Published package smoke (Node 18.12)
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '18.12.0'
+          package-manager-cache: false
+      - name: Check running via npx
+        run: npx --yes yarn-berry-audit-fix@latest --help
+      - name: Check global install
+        # Read from the registry to verify the published artifact.
+        run: npm install --global yarn-berry-audit-fix@latest # zizmor: ignore[adhoc-packages]
+      - name: Check installed CLI
+        run: yarn-berry-audit-fix --help

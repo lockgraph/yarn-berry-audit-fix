@@ -1,9 +1,9 @@
 import { readFile, writeFile, rm, open } from 'node:fs/promises';
-import { resolve, join, relative, isAbsolute } from 'node:path';
+import { resolve, join, relative, isAbsolute, sep } from 'node:path';
 import semver from 'semver';
 import { isVulnerable, jsonRecords, object, type Advisory } from './audit.js';
-import { descriptors, npmDescriptor, parseLockfile } from './lockfile.js';
-import { createPlan, parsePolicy, type Plan, type UpdatePolicy } from './plan.js';
+import { descriptors, npmDescriptor, parseLockfile, type Lockfile } from './lockfile.js';
+import { createPlan, parsePolicy, type Change, type Plan, type UpdatePolicy } from './plan.js';
 import { withManifestBackups } from './manifest.js';
 import { restoreDescriptorHeaders } from './patch.js';
 import { auditResult, createRunner, publishedVersions, requireSuccess, yarnCommands, type Runner, type InstallMode } from './yarn.js';
@@ -49,6 +49,54 @@ async function restore(files: Map<string, Buffer | undefined>): Promise<void> {
   if (errors.length) throw new AggregateError(errors, 'Could not restore project files');
 }
 
+type Run = (args: string[]) => ReturnType<Runner>;
+
+function auditWarnings(lock: Lockfile, yarnVersion: string, major: number): string[] {
+  if (major >= 4) return [];
+  const versionsByName = new Map<string, Set<string>>();
+  for (const entry of Object.values(lock)) {
+    const locator = entry.resolution && npmDescriptor(entry.resolution);
+    if (!locator || !entry.version) continue;
+    const versions = versionsByName.get(locator.name) ?? new Set<string>();
+    versions.add(entry.version);
+    versionsByName.set(locator.name, versions);
+  }
+  const duplicates = [...versionsByName].filter(([, versions]) => versions.size > 1).map(([name]) => name).sort();
+  return duplicates.length
+    ? [`Yarn ${yarnVersion} legacy audit sends only one version per package name; findings may be incomplete for: ${duplicates.join(', ')}`]
+    : [];
+}
+
+async function workspaceManifests(cwd: string, manifest: Record<string, unknown>, run: Run): Promise<Set<string>> {
+  const manifests = new Set([join(cwd, 'package.json')]);
+  if (manifest.workspaces === undefined) return manifests;
+  const workspaces = requireSuccess(await run(['workspaces', 'list', '--json']), 'Workspace discovery');
+  for (const workspace of jsonRecords(workspaces)) {
+    if (!object(workspace) || typeof workspace.location !== 'string') throw new Error('Invalid workspace response');
+    const path = resolve(cwd, workspace.location, 'package.json');
+    const local = relative(cwd, path);
+    if (isAbsolute(local) || local === '..' || local.startsWith(`..${sep}`)) {
+      throw new Error('Workspace is outside the project root');
+    }
+    manifests.add(path);
+  }
+  return manifests;
+}
+
+function verifiedChanges(lock: Lockfile, changes: Change[], advisories: Advisory[]): Change[] {
+  const entries = descriptors(lock);
+  return changes.map(change => {
+    const entry = entries.get(change.descriptor);
+    // A descriptor can disappear when its parent was itself upgraded.
+    if (!entry) return { ...change, removed: true };
+    if (!entry.version || !semver.satisfies(entry.version, npmDescriptor(change.descriptor)!.range) ||
+        isVulnerable(entry.version, advisories.filter(a => a.name === change.name))) {
+      throw new Error(`Fix did not survive manifest restoration: ${change.descriptor}`);
+    }
+    return { ...change, to: entry.version };
+  });
+}
+
 /** Run at the workspace root. Yarn owns dependency resolution, fetching and graph normalization. */
 export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
   const policy = parsePolicy(options.policy);
@@ -71,19 +119,7 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
   const yarnVersion = requireSuccess(await run(['--version']), 'Yarn version').trim();
   const commands = yarnCommands(yarnVersion, options.mode);
   const auditArgs = commands.audit;
-  const warnings: string[] = [];
-  if (commands.major < 4) {
-    const versionsByName = new Map<string, Set<string>>();
-    for (const entry of Object.values(lock)) {
-      const locator = entry.resolution && npmDescriptor(entry.resolution);
-      if (!locator || !entry.version) continue;
-      const versions = versionsByName.get(locator.name) ?? new Set<string>();
-      versions.add(entry.version);
-      versionsByName.set(locator.name, versions);
-    }
-    const duplicates = [...versionsByName].filter(([, versions]) => versions.size > 1).map(([name]) => name).sort();
-    if (duplicates.length) warnings.push(`Yarn ${yarnVersion} legacy audit sends only one version per package name; findings may be incomplete for: ${duplicates.join(', ')}`);
-  }
+  const warnings = auditWarnings(lock, yarnVersion, commands.major);
   options.onProgress?.(`Auditing with Yarn ${yarnVersion}`);
   const before = auditResult(await run(auditArgs));
   const versions: Record<string, string[]> = {};
@@ -102,21 +138,9 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
     if (!(await readFile(manifestPath)).equals(originalManifest) || !(await readFile(lockPath)).equals(originalLock)) {
       throw new Error('Project changed during planning; retry with an idle project');
     }
-    const manifests = new Set([manifestPath]);
     const preserved = new Map<string, Buffer | undefined>();
     preserved.set(join(cwd, '.yarnrc.yml'), await optionalRead(join(cwd, '.yarnrc.yml')));
-    if (manifest.workspaces !== undefined) {
-      const workspaces = requireSuccess(await run(['workspaces', 'list', '--json']), 'Workspace discovery');
-      for (const workspace of jsonRecords(workspaces)) {
-        if (!object(workspace) || typeof workspace.location !== 'string') throw new Error('Invalid workspace response');
-        const path = resolve(cwd, workspace.location, 'package.json');
-        const local = relative(cwd, path);
-        if (isAbsolute(local) || local === '..' || local.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)) {
-          throw new Error('Workspace is outside the project root');
-        }
-        manifests.add(path);
-      }
-    }
+    const manifests = await workspaceManifests(cwd, manifest, run);
     // Yarn may write install state even in update-lockfile mode. Retain its previous contents on rollback.
     const statePath = requireSuccess(await run(['config', 'get', 'installStatePath', '--json']), 'Install state location');
     const stateLocation: unknown = JSON.parse(statePath);
@@ -136,17 +160,8 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
       await writeFile(lockPath, restoreDescriptorHeaders(generatedLock, plan.changes));
       options.onProgress?.('Auditing the restored project');
       result.remaining = auditResult(await run(auditArgs));
-      const finalLock = descriptors(parseLockfile(await readFile(lockPath, 'utf8')));
-      result.changes = plan.changes.map(change => {
-        const entry = finalLock.get(change.descriptor);
-        // A descriptor can disappear when its parent was itself upgraded.
-        if (!entry) return { ...change, removed: true };
-        if (!entry.version || !semver.satisfies(entry.version, npmDescriptor(change.descriptor)!.range) ||
-            isVulnerable(entry.version, [...before, ...result.remaining].filter(a => a.name === change.name))) {
-          throw new Error(`Fix did not survive manifest restoration: ${change.descriptor}`);
-        }
-        return { ...change, to: entry.version };
-      });
+      const finalLock = parseLockfile(await readFile(lockPath, 'utf8'));
+      result.changes = verifiedChanges(finalLock, plan.changes, [...before, ...result.remaining]);
       result.changed = !(await readFile(lockPath)).equals(originalLock);
       if (options.mode === 'update-lockfile') await restore(new Map([[stateFile, originalState]]));
       return result;

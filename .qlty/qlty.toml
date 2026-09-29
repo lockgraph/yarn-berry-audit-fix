@@ -1,0 +1,4 @@
+config_version = "0"
+
+exclude_patterns = ["**/node_modules/**", "**/target/**"]
+test_patterns = ["src/test/**"]

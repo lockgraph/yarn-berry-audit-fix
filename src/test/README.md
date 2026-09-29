@@ -92,6 +92,8 @@ The runtime accepts stable Berry releases from 2.4 through 4.x, excluding 4.0.0 
 
 ## Checks and coverage
 
+Run `qlty smells --all` to check maintainability locally. The [Qlty configuration](../../.qlty/qlty.toml) uses default smell thresholds, identifies `src/test` as test code, and excludes dependencies and build output.
+
 `test:coverage` measures `src/main/**/*.ts` with V8 and writes LCOV and HTML reports to `target/coverage`. CI saves the report as an artifact. On pushes to `master`, the release job uploads `target/coverage/lcov.info` to Qlty with the repository's `QLTY_COVERAGE_TOKEN` before publishing the package.
 
 Integration tests cover root projects and workspaces, multiple semver branches, `node_modules` and PnP installations, both install modes, existing installed trees, idempotence, incompatible pins, and rollback on failure. They also capture Yarn 2/3 audit omissions when multiple versions of a package coexist.

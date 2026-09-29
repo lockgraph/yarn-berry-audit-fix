@@ -22,6 +22,7 @@ Requires **Node.js 18.12+** and stable **Yarn 2.4+, 3.x, or 4.x** (except 4.0.0)
 yarn dlx yarn-berry-audit-fix --dry-run
 yarn dlx yarn-berry-audit-fix --policy=highest
 yarn dlx yarn-berry-audit-fix --mode=update-lockfile
+yarn dlx yarn-berry-audit-fix --audit-registry=https://registry.npmjs.org
 ```
 
 | Option | Effect |
@@ -29,11 +30,14 @@ yarn dlx yarn-berry-audit-fix --mode=update-lockfile
 | `--dry-run` | Preview compatible fixes without installing or editing manifests or the lockfile. |
 | `--policy=lowest\|highest` | Select the lowest (default) or highest newer stable version within each original range that avoids all reported vulnerabilities. |
 | `--mode=update-lockfile` | Update the lockfile without linking or building. Requires Yarn 3+; rejected on Yarn 2. May download packages to the cache. |
+| `--audit-registry URL` | Send both audits directly to this registry using the bulk API. Works with Yarn 2/3/4; metadata and downloads keep their existing registry settings. |
 | `--cwd DIR` | Use another project root. |
 | `--json` | Print the report as JSON, including planned/applied changes, skipped requests, remaining advisories, and warnings. |
 | `--yarn-path FILE` | Run a specific Yarn JavaScript bundle instead of `yarn` from PATH. |
 
 By default, dependencies are installed. After a lockfile-only run, use `yarn install` when you want to update the installed tree.
+
+`--audit-registry` takes a base URL; requests go to `/-/npm/v1/security/advisories/bulk`. Without it, the tool uses Yarn's audit first, then falls back to the public npm bulk API if Yarn fails. Direct requests include every locked npm version, including aliases and patched npm packages, and do not read Yarn registry settings or credentials.
 
 Exit codes: `0` for a clean audit or dry run, `1` for remaining advisories, `2` for an execution error, `130` for interruption.
 
@@ -42,18 +46,23 @@ Exit codes: `0` for a clean audit or dry run, `1` for remaining advisories, `2` 
 ```ts
 import { fixAudit } from 'yarn-berry-audit-fix';
 
-const report = await fixAudit({ cwd: '/path/to/project', dryRun: true, policy: 'highest' });
+const report = await fixAudit({
+  cwd: '/path/to/project',
+  dryRun: true,
+  policy: 'highest',
+  auditRegistry: 'https://registry.npmjs.org', // Optional; bypasses native Yarn audit.
+});
 ```
 
 ## How it works
 
-The tool runs `yarn npm audit`, selects compatible fixes using the chosen policy, and adds temporary `resolutions`. Yarn performs one install. The original manifests are then restored, lockfile headers are patched back to their original ranges, and the audit runs again. Yarn's generated package records are preserved.
+The tool audits dependencies, selects compatible fixes using the chosen policy, and adds temporary `resolutions`. Yarn performs one install. The original manifests are then restored, lockfile headers are patched back to their original ranges, and the audit runs again. Yarn's generated package records are preserved.
 
 ## Known limitations
 
 - **Compatible npm ranges only.** Exact pins, aliases, special protocols, and ranges without a compatible fix are skipped. The tool does not widen ranges or search for parent upgrades to unlock a transitive fix.
 - **Existing resolutions take priority.** Any package covered by a user resolution is skipped. Generated rules distinguish dependency ranges, but apply to all parents requesting the same range.
-- **One repair pass.** Remaining or newly discovered advisories are reported, not automatically retried. Yarn 2/3 can miss versions when several versions of a package coexist; even exit code `0` may be incomplete. Warnings do not change the exit code.
+- **One repair pass.** Remaining or newly discovered advisories are reported, not automatically retried. Native Yarn 2/3 audits can miss versions when several coexist; use `--audit-registry=https://registry.npmjs.org` to audit all locked npm versions directly. Bulk audit excludes workspace, Git, and other non-npm sources. Warnings do not change the exit code.
 - **Installation has side effects.** Yarn may change more of the lockfile than the planned fixes. The tool sets `YARN_ENABLE_SCRIPTS=false`; packages may need a separate build. Plugins and workspace hooks are not sandboxed.
 - **Rollback has limits.** Handled failures restore manifests, lockfile, configuration, and saved install state, but not installed files or caches. Run `yarn install` after a failed regular install. A crash may require restoring adjacent `package.json-<sha256>.backup` files, recovering the lockfile from version control, and removing a stale `.yarn-berry-audit-fix.lock` after confirming no fixer is running.
 

@@ -44,7 +44,7 @@ it.each(['--help', '-h'])('shows %s without inspecting or changing a project', a
   expect(process.exitCode).toBeUndefined();
 });
 
-it.each(['--mode=unknown', '--policy=unknown', '--unknown', '--cwd'])('rejects invalid arguments: %s', async flag => {
+it.each(['--mode=unknown', '--policy=unknown', '--unknown', '--cwd', '--audit-registry'])('rejects invalid arguments: %s', async flag => {
   await run(flag);
   expect(fixAudit).not.toHaveBeenCalled();
   expect(console.error).toHaveBeenCalledWith(expect.any(String));
@@ -67,9 +67,9 @@ it('passes options to the fixer and keeps progress and warnings out of JSON outp
     options?.onProgress?.('Auditing');
     return result;
   });
-  await run('--cwd', 'project', '--yarn-path', 'yarn.cjs', '--dry-run', '--mode=update-lockfile', '--policy=highest', '--json');
+  await run('--cwd', 'project', '--yarn-path', 'yarn.cjs', '--dry-run', '--mode=update-lockfile', '--policy=highest', '--audit-registry', 'https://audit.example.org', '--json');
   expect(createRunner).toHaveBeenCalledWith([process.execPath, resolve('yarn.cjs')]);
-  expect(fixAudit).toHaveBeenCalledWith(expect.objectContaining({ cwd: 'project', runner, dryRun: true, mode: 'update-lockfile', policy: 'highest' }));
+  expect(fixAudit).toHaveBeenCalledWith(expect.objectContaining({ cwd: 'project', runner, dryRun: true, mode: 'update-lockfile', policy: 'highest', auditRegistry: 'https://audit.example.org' }));
   expect(console.log).toHaveBeenCalledExactlyOnceWith(JSON.stringify(result, null, 2));
   expect(console.error).toHaveBeenCalledWith('Auditing');
   expect(console.error).toHaveBeenCalledWith('Warning: Legacy audit is incomplete');

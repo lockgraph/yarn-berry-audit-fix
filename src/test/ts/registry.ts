@@ -10,7 +10,7 @@ for (const [name, fixture] of Object.entries(fixtures)) {
 }
 
 /** Serve pinned metadata and downloaded npm archives; only the audit transport is simulated. */
-export async function startRegistry() {
+export async function startRegistry(options: { rejectAudit?: boolean } = {}) {
   const archives = new Map<string, Buffer>();
   const metadata = new Map<string, string>();
   for (const [name, fixture] of Object.entries(fixtures)) {
@@ -32,7 +32,10 @@ export async function startRegistry() {
       if (req.headers['content-encoding'] === 'gzip') data = gunzipSync(data);
       const body = data.length ? JSON.parse(data.toString()) : {};
       res.setHeader('content-type', 'application/json');
-      if (path === '/-/npm/v1/security/advisories/bulk') {
+      if (options.rejectAudit && path.startsWith('/-/npm/v1/security/')) {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ error: 'Invalid audit payload' }));
+      } else if (path === '/-/npm/v1/security/advisories/bulk') {
         const result = Object.fromEntries(Object.entries(bulk).map(([name, values]) => [name,
           (values as Record<string, unknown>[]).filter(a => (body[name] ?? []).some((v: string) => semver.satisfies(v, String(a.vulnerable_versions)))),
         ]).filter(([, values]) => (values as unknown[]).length));

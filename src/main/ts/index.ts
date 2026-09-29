@@ -2,11 +2,12 @@ import { readFile, writeFile, rm, open } from 'node:fs/promises';
 import { resolve, join, relative, isAbsolute, sep } from 'node:path';
 import semver from 'semver';
 import { isVulnerable, jsonRecords, object, type Advisory } from './audit.js';
+import { createAuditor } from './auditor.js';
 import { descriptors, npmDescriptor, parseLockfile, type Lockfile } from './lockfile.js';
 import { createPlan, parsePolicy, type Change, type Plan, type UpdatePolicy } from './plan.js';
 import { withManifestBackups } from './manifest.js';
 import { restoreDescriptorHeaders } from './patch.js';
-import { auditResult, createRunner, publishedVersions, requireSuccess, yarnCommands, type Runner, type InstallMode } from './yarn.js';
+import { createRunner, parseAuditRegistry, publishedVersions, requireSuccess, yarnCommands, type Runner, type InstallMode } from './yarn.js';
 
 export { parseAudit, type Advisory } from './audit.js';
 export { createPlan, type Plan, type Change, type Skipped, type UpdatePolicy } from './plan.js';
@@ -17,6 +18,7 @@ export interface FixOptions {
   dryRun?: boolean;
   mode?: InstallMode;
   policy?: UpdatePolicy;
+  auditRegistry?: string;
   runner?: Runner;
   signal?: AbortSignal;
   onProgress?: (message: string) => void;
@@ -51,22 +53,6 @@ async function restore(files: Map<string, Buffer | undefined>): Promise<void> {
 
 type Run = (args: string[]) => ReturnType<Runner>;
 
-function auditWarnings(lock: Lockfile, yarnVersion: string, major: number): string[] {
-  if (major >= 4) return [];
-  const versionsByName = new Map<string, Set<string>>();
-  for (const entry of Object.values(lock)) {
-    const locator = entry.resolution && npmDescriptor(entry.resolution);
-    if (!locator || !entry.version) continue;
-    const versions = versionsByName.get(locator.name) ?? new Set<string>();
-    versions.add(entry.version);
-    versionsByName.set(locator.name, versions);
-  }
-  const duplicates = [...versionsByName].filter(([, versions]) => versions.size > 1).map(([name]) => name).sort();
-  return duplicates.length
-    ? [`Yarn ${yarnVersion} legacy audit sends only one version per package name; findings may be incomplete for: ${duplicates.join(', ')}`]
-    : [];
-}
-
 async function workspaceManifests(cwd: string, manifest: Record<string, unknown>, run: Run): Promise<Set<string>> {
   const manifests = new Set([join(cwd, 'package.json')]);
   if (manifest.workspaces === undefined) return manifests;
@@ -100,6 +86,7 @@ function verifiedChanges(lock: Lockfile, changes: Change[], advisories: Advisory
 /** Run at the workspace root. Yarn owns dependency resolution, fetching and graph normalization. */
 export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
   const policy = parsePolicy(options.policy);
+  const auditRegistry = parseAuditRegistry(options.auditRegistry);
   const cwd = resolve(options.cwd ?? process.cwd());
   const manifestPath = join(cwd, 'package.json');
   const lockPath = join(cwd, 'yarn.lock');
@@ -118,17 +105,19 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
   });
   const yarnVersion = requireSuccess(await run(['--version']), 'Yarn version').trim();
   const commands = yarnCommands(yarnVersion, options.mode);
-  const auditArgs = commands.audit;
-  const warnings = auditWarnings(lock, yarnVersion, commands.major);
+  const auditor = createAuditor({
+    registry: auditRegistry, yarnVersion, major: commands.major,
+    run: () => run(commands.audit), signal: options.signal, onProgress: options.onProgress,
+  });
   options.onProgress?.(`Auditing with Yarn ${yarnVersion}`);
-  const before = auditResult(await run(auditArgs));
+  const before = await auditor.read(lock);
   const versions: Record<string, string[]> = {};
   for (const name of new Set(before.map(advisory => advisory.name))) {
     options.onProgress?.(`Looking up published versions of ${name}`);
     versions[name] = publishedVersions(requireSuccess(await run(['npm', 'info', name, '--fields', 'versions', '--json']), 'Package metadata'), name);
   }
   const plan = createPlan(lock, before, versions, existing as Record<string, string>, policy);
-  const result: FixResult = { ...plan, policy, yarnVersion, changed: false, dryRun: !!options.dryRun, before, remaining: before, warnings };
+  const result: FixResult = { ...plan, policy, yarnVersion, changed: false, dryRun: !!options.dryRun, before, remaining: before, warnings: auditor.warnings };
   if (options.dryRun || !plan.changes.length) return result;
 
   const guardPath = join(cwd, '.yarn-berry-audit-fix.lock');
@@ -159,8 +148,8 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
       const generatedLock = await readFile(lockPath, 'utf8');
       await writeFile(lockPath, restoreDescriptorHeaders(generatedLock, plan.changes));
       options.onProgress?.('Auditing the restored project');
-      result.remaining = auditResult(await run(auditArgs));
       const finalLock = parseLockfile(await readFile(lockPath, 'utf8'));
+      result.remaining = await auditor.read(finalLock);
       result.changes = verifiedChanges(finalLock, plan.changes, [...before, ...result.remaining]);
       result.changed = !(await readFile(lockPath)).equals(originalLock);
       if (options.mode === 'update-lockfile') await restore(new Map([[stateFile, originalState]]));

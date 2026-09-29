@@ -100,6 +100,8 @@ CLI tests exercise argument parsing, output, exit codes, progress and signal han
 
 Integration tests cover root projects and workspaces, multiple semver branches, `node_modules` and PnP installations, both install modes, existing installed trees, idempotence, incompatible pins, and rollback on failure. They also capture Yarn 2/3 audit omissions when multiple versions of a package coexist.
 
+Separate registry tests verify direct bulk audits on Yarn 2/3/4, including both semver branches in a workspace, while metadata and tarball requests stay on the package registry. Fallback tests simulate a native HTTP 400 and check both audits against the original and repaired lockfiles. Native CLI smokes exercise the flag on the runtime Node/OS matrix.
+
 For each successful fix, checks verify:
 
 - Exactly one install during the fix, followed by another audit.

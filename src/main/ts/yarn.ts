@@ -45,6 +45,17 @@ export function supportedYarn(version: string): number {
 
 export type InstallMode = 'update-lockfile';
 
+export function parseAuditRegistry(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  let url: URL;
+  try { url = new URL(value); } catch { throw new Error('Audit registry must be an absolute HTTP(S) URL'); }
+  const unsupportedParts = [url.search, url.hash, url.username, url.password].some(Boolean);
+  if (!['http:', 'https:'].includes(url.protocol) || unsupportedParts) {
+    throw new Error('Audit registry must be an HTTP(S) base URL without credentials, query or fragment');
+  }
+  return url.href.replace(/\/+$/, '');
+}
+
 export function yarnCommands(version: string, mode?: InstallMode) {
   const major = supportedYarn(version);
   if (mode !== undefined && mode !== 'update-lockfile') throw new Error(`Unsupported install mode: ${mode}`);
@@ -60,7 +71,11 @@ export function yarnCommands(version: string, mode?: InstallMode) {
 
 export function auditResult(result: CommandResult): Advisory[] {
   if (result.code !== 0 && result.code !== 1) requireSuccess(result, 'Audit');
-  const advisories = parseAudit(result.stdout);
+  let advisories: Advisory[];
+  try { advisories = parseAudit(result.stdout); } catch (error) {
+    if (result.code !== 0) requireSuccess(result, 'Audit');
+    throw error;
+  }
   if (result.code !== 0 && !advisories.length) requireSuccess(result, 'Audit');
   return advisories;
 }

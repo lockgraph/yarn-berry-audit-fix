@@ -10,7 +10,7 @@ import { startRegistry } from './registry.js';
 const cli = createRunner([process.execPath, resolve('target/main/cli.js')]);
 const runCLI = (args: string[]) => cli(args, { cwd: process.cwd(), env: { ...process.env, YARN_IGNORE_PATH: '1' } });
 assert.match(requireSuccess(await runCLI(['--help']), 'CLI help'), /--policy=lowest\|highest/);
-for (const flag of ['--policy=unknown', '--mode=unknown']) assert.equal((await runCLI([flag])).code, 2);
+for (const flag of ['--policy=unknown', '--mode=unknown', '--audit-registry=not-a-url']) assert.equal((await runCLI([flag])).code, 2);
 
 const registry = await startRegistry();
 try {
@@ -27,7 +27,8 @@ try {
       const project = await prepareProject(cwd, registry.url, yarn, { repo: workspace ? 'masker' : 'packasso', workspace });
       const files = ['package.json', 'yarn.lock', '.yarnrc.yml', ...(workspace ? ['packages/child/package.json'] : [])];
       const original = await Promise.all(files.map(file => readFile(join(cwd, file))));
-      const args = ['--cwd', cwd, '--yarn-path', yarn, '--json', '--policy=highest', ...(mode ? [`--mode=${mode}`] : [])];
+      const args = ['--cwd', cwd, '--yarn-path', yarn, '--json', '--policy=highest',
+        ...(mode ? [`--mode=${mode}`] : []), `--audit-registry=${registry.url}`];
       const dry: FixResult = JSON.parse(requireSuccess(await runCLI([...args, '--dry-run']), 'CLI dry run'));
       assert.equal(dry.changed, false);
       assert.equal(dry.policy, 'highest');

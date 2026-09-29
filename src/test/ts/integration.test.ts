@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, writeFile, rm, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -12,6 +12,7 @@ import { managers } from './pm.js';
 import { prepareProject } from './project.js';
 
 const require = createRequire(import.meta.url);
+afterEach(() => vi.unstubAllGlobals());
 let registry: Awaited<ReturnType<typeof startRegistry>>;
 const directories: string[] = [];
 beforeAll(async () => { registry = await startRegistry(); });
@@ -118,6 +119,67 @@ describe.each(managers)('Yarn $version / lockfile v$schema', ({ alias: yarn, ver
     requireSuccess(await run(['install', '--immutable']), 'Immutable PnP install');
     expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(lock);
   });
+
+  it('uses a separate audit registry without redirecting package metadata or downloads', async () => {
+    const { cwd, runner, run } = await project('masker', yarn, true);
+    const paths = ['package.json', 'yarn.lock', '.yarnrc.yml'];
+    const original = await Promise.all(paths.map(path => readFile(join(cwd, path))));
+    const audit = await startRegistry();
+    const offset = registry.requests.length;
+    const calls: string[][] = [];
+    const observed: Runner = (args, options) => { calls.push(args); return runner(args, options); };
+    try {
+      const result = await fixAudit({ cwd, runner: observed, auditRegistry: audit.url });
+      expect(result.changed).toBe(true);
+      expect(result.before.length).toBeGreaterThan(0);
+      expect(result.remaining).toEqual([]);
+      expect(result.changes.map(change => change.to)).toEqual(['1.1.18', '2.1.4']);
+      expect(result.warnings).toEqual([]);
+      expect(calls.some(args => args[1] === 'audit')).toBe(false);
+      const endpoint = '/-/npm/v1/security/advisories/bulk';
+      expect(audit.requests).toEqual([endpoint, endpoint]);
+      const packageRequests = registry.requests.slice(offset);
+      expect(packageRequests).toContain('/brace-expansion');
+      expect(packageRequests.some(path => path.endsWith('.tgz'))).toBe(true);
+      expect(packageRequests.some(path => path.startsWith('/-/npm/v1/security/'))).toBe(false);
+      expect(await readFile(join(cwd, 'package.json'))).toEqual(original[0]);
+      expect(await readFile(join(cwd, '.yarnrc.yml'))).toEqual(original[2]);
+      const fixed = await readFile(join(cwd, 'yarn.lock'));
+      requireSuccess(await run(['install', '--immutable']), 'Immutable install after direct bulk audit');
+      expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(fixed);
+    } finally { await audit.close(); }
+  });
+});
+
+it.each(['pm-yarn-2', 'pm-yarn-berry-v6', 'pm-yarn-berry-v10'])('falls back after native HTTP 400 and repairs both workspace branches with %s', async yarn => {
+  const broken = await startRegistry({ rejectAudit: true });
+  const audit = await startRegistry();
+  const cwd = await mkdtemp(join(tmpdir(), 'berry-bulk-fallback-'));
+  directories.push(cwd);
+  const fetch = globalThis.fetch;
+  const payloads: unknown[] = [];
+  vi.stubGlobal('fetch', (url: string, options: RequestInit) => {
+    expect(url).toBe('https://registry.npmjs.org/-/npm/v1/security/advisories/bulk');
+    payloads.push(JSON.parse(String(options.body)));
+    return fetch(`${audit.url}/-/npm/v1/security/advisories/bulk`, options);
+  });
+  try {
+    const { runner, run } = await prepareProject(cwd, broken.url, require.resolve(`${yarn}/bin/yarn.js`), { repo: 'masker', workspace: true });
+    const paths = ['package.json', 'packages/child/package.json', '.yarnrc.yml'];
+    const original = await Promise.all(paths.map(path => readFile(join(cwd, path))));
+    const result = await fixAudit({ cwd, runner });
+    expect(result.changes.map(change => change.to)).toEqual(['1.1.18', '2.1.4']);
+    expect(result.remaining).toEqual([]);
+    expect(result.warnings).toEqual([expect.stringContaining('using bulk audit')]);
+    expect(broken.requests.filter(path => path.startsWith('/-/npm/v1/security/'))).toHaveLength(1);
+    expect(payloads).toHaveLength(2);
+    expect(payloads[0]).toMatchObject({ 'brace-expansion': ['1.1.11', '2.0.1'] });
+    expect(payloads[1]).toMatchObject({ 'brace-expansion': ['1.1.18', '2.1.4'] });
+    expect(await Promise.all(paths.map(path => readFile(join(cwd, path))))).toEqual(original);
+    const fixed = await readFile(join(cwd, 'yarn.lock'));
+    requireSuccess(await run(['install', '--immutable']), 'Immutable install after bulk fallback');
+    expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(fixed);
+  } finally { await Promise.all([broken.close(), audit.close()]); }
 });
 
 it('installs the highest compatible fix when a lower stable fix also satisfies the initial audit', async () => {
@@ -199,7 +261,10 @@ it.each(['install', 'audit'])('restores original files when the %s fails', async
     }
     return runner(args, options);
   };
-  await expect(fixAudit({ cwd, runner: failing })).rejects.toThrow(failedStage === 'install' ? 'Temporary resolutions install failed' : 'Audit failed');
+  const fetchFailure = vi.fn().mockRejectedValue(new Error('Bulk registry unavailable'));
+  vi.stubGlobal('fetch', fetchFailure);
+  await expect(fixAudit({ cwd, runner: failing })).rejects.toThrow(failedStage === 'install' ? 'Temporary resolutions install failed' : 'Yarn audit and bulk fallback failed');
+  expect(fetchFailure).toHaveBeenCalledTimes(failedStage === 'install' ? 0 : 1);
   const after = await Promise.all(paths.map(path => readFile(join(cwd, path)).catch(() => undefined)));
   expect(after).toEqual(before);
   expect((await stat(join(cwd, 'package.json'))).ino).toBe(originalStat.ino);

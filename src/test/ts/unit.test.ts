@@ -3,7 +3,7 @@ import { parseAudit } from '../../main/ts/audit.js';
 import { createPlan } from '../../main/ts/plan.js';
 import { fixAudit } from '../../main/ts/index.js';
 import { parseLockfile, type Lockfile } from '../../main/ts/lockfile.js';
-import { auditResult, publishedVersions, supportedYarn } from '../../main/ts/yarn.js';
+import { auditResult, parseAuditRegistry, publishedVersions, supportedYarn, yarnCommands } from '../../main/ts/yarn.js';
 
 const advisory = { id: '1', name: 'foo', vulnerable: '<1.2.3' };
 const entry = (version: string, name = 'foo') => ({ version, resolution: `${name}@npm:${version}`, checksum: 'original', dependencies: { child: 'npm:^1' } });
@@ -32,6 +32,23 @@ describe('audit normalization', () => {
     expect(() => auditResult({ code: 1, stdout: '{}', stderr: 'network error' })).toThrow('network error');
     expect(() => auditResult({ code: 2, stdout: '', stderr: 'usage error' })).toThrow('usage error');
   });
+  it('preserves Yarn diagnostics when a registry failure produces text despite --json', () => {
+    const stdout = '➤ YN0035: Bad Request\n➤ YN0035:   Response Code: 400 (Bad Request)\n➤ YN0035:   Request URL: https://registry.example.org/-/npm/v1/security/audits/quick\n';
+    expect(() => auditResult({ code: 1, stdout, stderr: '' })).toThrow(`Audit failed (1):\n${stdout}`);
+    expect(() => auditResult({ code: 0, stdout: 'not json', stderr: '' })).toThrow(SyntaxError);
+  });
+});
+
+describe('audit registry override', () => {
+  it.each(['', 'registry.example.org', 'file:///tmp/audit', 'https://example.org?token=secret', 'https://example.org#fragment', 'https://user:secret@example.org'])('rejects invalid audit registry URLs before accessing project files: %s', async auditRegistry => {
+    await expect(fixAudit({ cwd: '/missing-project', auditRegistry })).rejects.toThrow('Audit registry must be');
+  });
+  it('normalizes the registry base URL and retains reverse proxy paths', () => {
+    expect(parseAuditRegistry('https://audit.example.org/npm/')).toBe('https://audit.example.org/npm');
+    expect(parseAuditRegistry('http://127.0.0.1:1234/')).toBe('http://127.0.0.1:1234');
+    expect(parseAuditRegistry(undefined)).toBeUndefined();
+  });
+
 });
 
 describe('compatible planning', () => {

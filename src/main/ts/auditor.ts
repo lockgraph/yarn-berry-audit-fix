@@ -1,4 +1,4 @@
-import { bulkAudit, bulkPackages, publicAuditRegistry } from './bulk.js';
+import { auditVersions, bulkAudit, bulkPackages, publicAuditRegistry } from './bulk.js';
 import type { Lockfile } from './lockfile.js';
 import { auditResult, type CommandResult } from './yarn.js';
 
@@ -23,6 +23,9 @@ export function createAuditor(options: AuditOptions) {
   const warnings: string[] = [];
   return {
     warnings,
+    candidates(packages: Record<string, string[]>) {
+      return auditVersions(packages, registry ?? publicAuditRegistry, options.signal);
+    },
     async read(lock: Lockfile) {
       options.signal?.throwIfAborted();
       if (registry) return bulkAudit(lock, registry, options.signal);

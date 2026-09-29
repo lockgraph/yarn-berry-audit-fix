@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -10,6 +10,7 @@ import { prepareMonorepo } from './project.js';
 import { startRegistry } from './registry.js';
 
 const require = createRequire(import.meta.url);
+const networkFetch = globalThis.fetch;
 const provenance = await readFixtureManifest();
 const projects = Object.entries(provenance).filter(([, fixture]) => fixture.project).map(([file, fixture]) => ({
   source: file.slice(0, -'/yarn.lock'.length), ...fixture.project!,
@@ -17,6 +18,9 @@ const projects = Object.entries(provenance).filter(([, fixture]) => fixture.proj
 
 describe('native upstream workspace subgraphs', () => {
   let registry: Awaited<ReturnType<typeof startRegistry>>;
+  beforeEach(() => vi.stubGlobal('fetch', (url: string, options: RequestInit) =>
+    networkFetch(url.replace('https://registry.npmjs.org', registry.url), options)));
+  afterEach(() => vi.unstubAllGlobals());
   beforeAll(async () => { registry = await startRegistry(); });
   afterAll(async () => { await registry?.close(); });
   for (const fixture of projects.filter(project => project.nativeDependencies)) {

@@ -34,8 +34,11 @@ export function bulkPackages(lock: Lockfile): Record<string, string[]> {
 }
 
 export async function bulkAudit(lock: Lockfile, registry: string, signal?: AbortSignal): Promise<Advisory[]> {
+  return auditVersions(bulkPackages(lock), registry, signal);
+}
+
+export async function auditVersions(packages: Record<string, string[]>, registry: string, signal?: AbortSignal): Promise<Advisory[]> {
   signal?.throwIfAborted();
-  const packages = bulkPackages(lock);
   if (!Object.keys(packages).length) return [];
   const controller = new AbortController();
   const abort = () => controller.abort(signal!.reason);

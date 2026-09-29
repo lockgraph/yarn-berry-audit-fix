@@ -119,7 +119,10 @@ export async function buildFixtures({
   manifestPath = fixtureManifest, directory = fixtureDirectory, fetcher = fetch, log = console.log,
 }: BuildOptions = {}): Promise<void> {
   const manifest = await readFixtureManifest(manifestPath);
-  for (const [name, fixture] of Object.entries(manifest)) {
+  const pending = Object.entries(manifest).values();
+  let failure: { error: unknown } | undefined;
+
+  async function buildFixture(name: string, fixture: Fixture): Promise<void> {
     const destination = join(directory, name);
     await mkdir(dirname(destination), { recursive: true });
     let cached: Buffer | undefined;
@@ -128,7 +131,7 @@ export async function buildFixtures({
     }
     if (cached && hasExpectedHash(cached, fixture)) {
       log(`Verified ${name} (cached)`);
-      continue;
+      return;
     }
     log(`Downloading ${name}`);
     const request: RequestInit = { signal: AbortSignal.timeout(30_000) };
@@ -149,6 +152,20 @@ export async function buildFixtures({
       await rm(temporary, { force: true });
     }
   }
+
+  // Drain active downloads and writes before reporting the first failure.
+  await Promise.all(Array.from({ length: 8 }, async () => {
+    for (const [name, fixture] of pending) {
+      if (failure) return;
+      try {
+        await buildFixture(name, fixture);
+      } catch (error) {
+        failure ??= { error };
+        return;
+      }
+    }
+  }));
+  if (failure) throw failure.error;
   log(`Fixtures ready: ${Object.keys(manifest).length}`);
 }
 

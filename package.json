@@ -37,9 +37,10 @@
     "build:smoke": "tsc -p tsconfig.smoke.json && node --experimental-strip-types src/test/ts/build-smoke.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run integration",
     "test:smoke": "node target/smoke/test/ts/smoke.js",
-    "check": "npm run build:test-fixtures && npm run typecheck && npm test && npm run build",
+    "check": "npm run build:test-fixtures && npm run typecheck && npm run test:coverage && npm run build",
     "start": "node target/main/cli.js",
     "release": "npx --yes zx-semrel@1.25.1"
   },
@@ -50,6 +51,7 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/semver": "^7.7.1",
+    "@vitest/coverage-v8": "^4.1.11",
     "pm-yarn-2": "npm:yarn@2.4.3",
     "pm-yarn-berry-v10": "npm:@yarnpkg/cli-dist@4.18.1",
     "pm-yarn-berry-v5": "npm:@yarnpkg/cli-dist@3.1.1",

@@ -31,6 +31,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: target/coverage
+          retention-days: 7
       - run: npm run build:smoke
       - uses: actions/upload-artifact@v7
         with:
@@ -107,6 +114,15 @@ jobs:
         with:
           name: build
           path: target/main
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage
+          path: target/coverage
+      - name: Publish coverage to Qlty
+        uses: qltysh/qlty-action/coverage@v2
+        with:
+          token: ${{ secrets.QLTY_COVERAGE_TOKEN }}
+          files: target/coverage/lcov.info
       # Publish the tested build; project dependencies are not installed here.
       - name: Release via zx-semrel (OIDC)
         env:

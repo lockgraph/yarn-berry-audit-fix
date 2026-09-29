@@ -1,6 +1,9 @@
 {
   "name": "yarn-berry-audit-fix",
-  "version": "0.0.0-prerelease.0",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "An experimental Yarn Berry audit fixer using temporary resolutions",
   "repository": {
     "type": "git",
@@ -37,7 +40,8 @@
     "test:integration": "vitest run integration",
     "test:smoke": "node target/smoke/test/ts/smoke.js",
     "check": "npm run build:test-fixtures && npm run typecheck && npm test && npm run build",
-    "start": "node target/main/cli.js"
+    "start": "node target/main/cli.js",
+    "release": "npx --yes zx-semrel@1.25.1"
   },
   "dependencies": {
     "@yarnpkg/parsers": "^3.0.3",

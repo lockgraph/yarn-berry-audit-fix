@@ -124,3 +124,11 @@ npm run test:smoke
 ```
 
 Once prepared, `node target/smoke/test/ts/smoke.js` can run on an older Node without rebuilding. Fixtures are copied to the compiled helper's resource directory, and the Yarn bundles are copied to `target/smoke-managers/`.
+
+## Releases
+
+Pushes to `master` release only after the full suite and all three runtime smoke jobs pass. The release job downloads the tested `target/main` artifact and runs `npm run release` with Node 26. It does not install project dependencies or rebuild the package.
+
+The pinned `zx-semrel` generates the version, changelog, release commit, tag, and GitHub release from conventional commits, then publishes to npm through OIDC and to GitHub Packages as `@lockgraph/yarn-berry-audit-fix`. The first release starts at `0.1.0`; later releases derive their version from stable Git tags. Organization variables supply `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL`; `GIT_SIGN_KEY` signs the release commit and tag. GitHub authentication uses the workflow's `GITHUB_TOKEN`.
+
+The npm trusted publisher must point to `lockgraph/yarn-berry-audit-fix`, workflow **`ci.yml`**, with direct `npm publish` allowed and no required environment. Publishing permissions and the signing secret are scoped to the release job. A final job checks the published package through `npx` and a global install on Node 18.12. PRs and manual workflow runs execute tests without publishing.

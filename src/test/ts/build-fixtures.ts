@@ -14,6 +14,7 @@ export interface Fixture {
   distTags?: Record<string, string>;
   advisoryIds?: number[];
   requestBody?: Record<string, string[]>;
+  project?: { schema: number; manager: string; nativeDependencies?: string[] };
 }
 type Manifest = Record<string, Fixture>;
 
@@ -38,6 +39,11 @@ export async function readFixtureManifest(path = fixtureManifest): Promise<Manif
         Array.isArray(fixture.requestBody) || !Object.values(fixture.requestBody).every(versions =>
           Array.isArray(versions) && versions.every(version => typeof version === 'string')))) {
       throw new Error(`Invalid audit recipe: ${name}`);
+    }
+    if (fixture.project && (!name.endsWith('/yarn.lock') || ![4, 5, 6, 8, 9, 10].includes(fixture.project.schema) ||
+        typeof fixture.project.manager !== 'string' || (fixture.project.nativeDependencies !== undefined &&
+        (!Array.isArray(fixture.project.nativeDependencies) || !fixture.project.nativeDependencies.every((value: unknown) => typeof value === 'string'))))) {
+      throw new Error(`Invalid project fixture: ${name}`);
     }
   }
   return manifest as Manifest;

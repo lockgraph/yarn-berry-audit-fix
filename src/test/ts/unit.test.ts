@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createHash } from 'node:crypto';
 import { parseAudit } from '../../main/ts/audit.js';
 import { createPlan } from '../../main/ts/plan.js';
 import { fixAudit } from '../../main/ts/index.js';
 import { parseLockfile, type Lockfile } from '../../main/ts/lockfile.js';
 import { auditResult, publishedVersions, supportedYarn } from '../../main/ts/yarn.js';
-import { readFixture, readFixtureManifest } from './build-fixtures.js';
 
 const advisory = { id: '1', name: 'foo', vulnerable: '<1.2.3' };
 const entry = (version: string, name = 'foo') => ({ version, resolution: `${name}@npm:${version}`, checksum: 'original', dependencies: { child: 'npm:^1' } });
@@ -99,21 +97,4 @@ describe('compatibility and metadata', () => {
   it.each(['2.4.0', '2.4.3', '3.0.0', '3.5.1', '4.0.1', '4.2.2', '4.18.1'])('supports Yarn %s', version => { expect(supportedYarn(version)).toBeGreaterThanOrEqual(2); });
   it.each(['1.22.22', '2.3.4', '4.0.0', '4.0.0-rc.14', '5.0.0', 'garbage'])('rejects unsupported Yarn %s', version => { expect(() => supportedYarn(version)).toThrow('Unsupported'); });
   it('rejects missing package metadata', () => { expect(() => publishedVersions('{}', 'foo')).toThrow('No published'); });
-});
-
-const provenance = await readFixtureManifest();
-const repositories = [...new Set(Object.keys(provenance).filter(name => name.startsWith('qiwi/')).map(name => name.split('/')[1]!))];
-describe.each(repositories)('upstream fixture %s', repo => {
-  it('matches the pinned GitHub sources byte for byte', async () => {
-    for (const [file, data] of Object.entries(provenance).filter(([name]) => name.startsWith(`qiwi/${repo}/`))) {
-      expect(createHash('sha256').update(await readFixture(file)).digest('hex')).toBe(data.sha256);
-    }
-  });
-  it('plans both vulnerable major branches on the full upstream lockfile', async () => {
-    const raw = (await readFixture(`qiwi/${repo}/yarn.lock`)).toString();
-    const audit = (await readFixture('audit/brace-expansion-bulk.json')).toString();
-    const plan = createPlan(parseLockfile(raw), parseAudit(audit), { 'brace-expansion': ['1.1.12', '2.0.2', '1.1.18', '2.1.4'] });
-    expect(plan.changes.map(change => change.to)).toEqual(['1.1.18', '2.1.4']);
-    expect(plan.skipped).toEqual([]);
-  });
 });

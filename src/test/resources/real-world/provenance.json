@@ -5,7 +5,11 @@
   },
   "qiwi/masker/yarn.lock": {
     "url": "https://raw.githubusercontent.com/qiwi/masker/1b3cf47948381e82cb775eb450cf7064b82c5d3d/yarn.lock",
-    "sha256": "65f47fd4ae170d74d38042dfcc6e93dbfee33187a626a0f4127c0e2d32073a63"
+    "sha256": "65f47fd4ae170d74d38042dfcc6e93dbfee33187a626a0f4127c0e2d32073a63",
+    "project": {
+      "schema": 8,
+      "manager": "yarn-4"
+    }
   },
   "qiwi/masker/LICENSE": {
     "url": "https://raw.githubusercontent.com/qiwi/masker/1b3cf47948381e82cb775eb450cf7064b82c5d3d/LICENSE",
@@ -17,7 +21,11 @@
   },
   "qiwi/packasso/yarn.lock": {
     "url": "https://raw.githubusercontent.com/qiwi/packasso/74a5f9c1f3d47546d7062028b582763db04064b5/yarn.lock",
-    "sha256": "381662990b2fba106085fdf5a3fdb60f4d08ec26f9ac2bbc0a69814d24223c52"
+    "sha256": "381662990b2fba106085fdf5a3fdb60f4d08ec26f9ac2bbc0a69814d24223c52",
+    "project": {
+      "schema": 6,
+      "manager": "pm-yarn-berry-v6"
+    }
   },
   "qiwi/packasso/LICENSE": {
     "url": "https://raw.githubusercontent.com/qiwi/packasso/74a5f9c1f3d47546d7062028b582763db04064b5/LICENSE",
@@ -67,12 +75,13 @@
     "url": "https://registry.npmjs.org/balanced-match",
     "format": "npm-metadata",
     "versions": [
-      "1.0.2"
+      "1.0.2",
+      "1.0.0"
     ],
     "distTags": {
       "latest": "1.0.2"
     },
-    "sha256": "0b6b0216d8e34aefaff18ba9e0c3bb3b1be38a92e9248ad08786a4448e33d4b8"
+    "sha256": "92c661463053340bd6b35329ca7bdc1ce922bf223491c1f243eae03822e39639"
   },
   "registry/brace-expansion.json": {
     "url": "https://registry.npmjs.org/brace-expansion",
@@ -106,12 +115,13 @@
     "format": "npm-metadata",
     "versions": [
       "3.1.2",
-      "9.0.3"
+      "9.0.3",
+      "3.0.4"
     ],
     "distTags": {
       "latest": "9.0.3"
     },
-    "sha256": "25f23ce003e9a48fed24b0047c3cc6d034d0e56d0da10bc8e499e4aa47728042"
+    "sha256": "41664e0ee5622fd5fa435a47e2efe110fd7daff29df99092a325e5ed9197cea3"
   },
   "audit/brace-expansion-bulk.json": {
     "url": "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
@@ -135,5 +145,427 @@
       1130737
     ],
     "sha256": "558aeb54aead164bd4a831ea1920e5d4637854372f42840a1f3a972d1719bd6f"
+  },
+  "corpus/jest-26/package.json": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/b254fd82fdedcba200e1c7eddeaab83a09bdaaef/package.json",
+    "sha256": "ff43f1aef10f7ca12e6dc9b446acc67a9a00972d5b1bc3e9935ea9577385d455"
+  },
+  "corpus/jest-26/yarn.lock": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/b254fd82fdedcba200e1c7eddeaab83a09bdaaef/yarn.lock",
+    "sha256": "a2f7b201370b154ab07f9916c5def3bfcd8c1166b5ea56e608ea3d42a029e9af",
+    "project": {
+      "schema": 4,
+      "manager": "pm-yarn-2",
+      "nativeDependencies": [
+        "glob",
+        "semver"
+      ]
+    }
+  },
+  "corpus/jest-26/packages/jest-config/package.json": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/b254fd82fdedcba200e1c7eddeaab83a09bdaaef/packages/jest-config/package.json",
+    "sha256": "30cda86e833d7880a4c5665486f0f802f59e4d2d4e91626ea8ec5706a44e4e20"
+  },
+  "corpus/jest-26/packages/jest-reporters/package.json": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/b254fd82fdedcba200e1c7eddeaab83a09bdaaef/packages/jest-reporters/package.json",
+    "sha256": "0380ab02c16be82ee3212b3b146ae62586826034cf9d39d690c6a9319e669ad7"
+  },
+  "corpus/jest-26/packages/jest-runtime/package.json": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/b254fd82fdedcba200e1c7eddeaab83a09bdaaef/packages/jest-runtime/package.json",
+    "sha256": "9af98461d5f7eb3399a71cd296e73c89bedee4a558fcc280ab5707167302a553"
+  },
+  "corpus/jest-26/packages/jest-core/package.json": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/b254fd82fdedcba200e1c7eddeaab83a09bdaaef/packages/jest-core/package.json",
+    "sha256": "bc83cb6ba722943b891d56af6777cff14d56f1d7ee55c567350306867bda7004"
+  },
+  "corpus/jest-26/LICENSE": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/b254fd82fdedcba200e1c7eddeaab83a09bdaaef/LICENSE",
+    "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+  },
+  "corpus/berry-3/package.json": {
+    "url": "https://raw.githubusercontent.com/yarnpkg/berry/8a82356039ae60f859daa8e6bda3ca681e7c2b0e/package.json",
+    "sha256": "a23835eb1d6f3a76543775eee23857e158e597a03c7242c8667fc34cc2b97170"
+  },
+  "corpus/berry-3/yarn.lock": {
+    "url": "https://raw.githubusercontent.com/yarnpkg/berry/8a82356039ae60f859daa8e6bda3ca681e7c2b0e/yarn.lock",
+    "sha256": "e95d091e2130c86f1e04035eeae771acb0f0b34613fff6cf328ba0345b42aa7e",
+    "project": {
+      "schema": 5,
+      "manager": "pm-yarn-berry-v5",
+      "nativeDependencies": [
+        "semver"
+      ]
+    }
+  },
+  "corpus/berry-3/LICENSE.md": {
+    "url": "https://raw.githubusercontent.com/yarnpkg/berry/8a82356039ae60f859daa8e6bda3ca681e7c2b0e/LICENSE.md",
+    "sha256": "238d933f5c226cc197bd1dae2ad0c468e157b4cba8ed844f81549ba6db777dc4"
+  },
+  "corpus/mware/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/package.json",
+    "sha256": "cf4a4253542e97bbca963dafe460194fc4f0f5434687d99ff7e8cb30625476ca"
+  },
+  "corpus/mware/yarn.lock": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/yarn.lock",
+    "sha256": "2d67f3d3dbe898b22601b18a13a5da4d311b71cba972c9e2a9f562040157ba55",
+    "project": {
+      "schema": 6,
+      "manager": "pm-yarn-berry-v6"
+    }
+  },
+  "corpus/mware/LICENSE": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/LICENSE",
+    "sha256": "9332d63cfcb70436b37ab6e7e56222ce35cd9c82af6e3cebd653ab988f188a48"
+  },
+  "corpus/mware/packages/context/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/packages/context/package.json",
+    "sha256": "65d72839e97f0453cea0fc2b211a16207f49737e5ab99199b06e35e0feb6421c"
+  },
+  "corpus/mware/packages/core/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/packages/core/package.json",
+    "sha256": "65be651f8d7c300b56c486091025205debd17e61323ee2cc33acbbafe5a5cd0b"
+  },
+  "corpus/mware/packages/cors/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/packages/cors/package.json",
+    "sha256": "baf5783c4be1ddfd24ac61eff0f12cd0e6fd262c5d09f4317aeb29b70ee6017f"
+  },
+  "corpus/mware/packages/crumbs/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/packages/crumbs/package.json",
+    "sha256": "56b3e99d9ffe6026b40e49deacc58996c17cf1b52ab0e07a147d67445ebe5db6"
+  },
+  "corpus/mware/packages/facade/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/packages/facade/package.json",
+    "sha256": "3157aaac5198309b9511f5d0443c878e3db1f6f685aa8d5f16c848d3ae1c3556"
+  },
+  "corpus/mware/packages/infra/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/packages/infra/package.json",
+    "sha256": "e3a7fbf856a0b479e1193b073bb8c0211f793974283f71cd8fb33afde4db4d9f"
+  },
+  "corpus/mware/packages/logger/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/packages/logger/package.json",
+    "sha256": "a2388fc7287b189be2d0355c7da1b6dd7c0041d3908a207f5417e93cd1805c35"
+  },
+  "corpus/mware/packages/mdc/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/packages/mdc/package.json",
+    "sha256": "cac7cc95c22c3f255fd317a43bdff17bc0a1c714ced447a34d95c3d8e6bf6548"
+  },
+  "corpus/mware/packages/validator/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/mware/ed822d4d23737268917097a07e46b9ac559bed43/packages/validator/package.json",
+    "sha256": "3ad1180c36eb1e1dbcc89d78a2dfa3caca9481be3c1c30c7d302727a186fe96b"
+  },
+  "corpus/highlight/package.json": {
+    "url": "https://raw.githubusercontent.com/highlight/highlight/7a297b5fea4233d99e92177f53dada3236513616/package.json",
+    "sha256": "f7b1f823ede94eeb621004db590d3cb609624924b63373adb2ebe6011f5dcef7"
+  },
+  "corpus/highlight/yarn.lock": {
+    "url": "https://raw.githubusercontent.com/highlight/highlight/7a297b5fea4233d99e92177f53dada3236513616/yarn.lock",
+    "sha256": "ce04ca5b290feab4b7129fcd4a4061f6918b084b7b105c6fd6500a2f246b8e78",
+    "project": {
+      "schema": 8,
+      "manager": "yarn-4"
+    }
+  },
+  "corpus/highlight/sdk/highlight-next/package.json": {
+    "url": "https://raw.githubusercontent.com/highlight/highlight/7a297b5fea4233d99e92177f53dada3236513616/sdk/highlight-next/package.json",
+    "sha256": "42113b6e055aa344094070e2a66461ae46e62cb1f3af71d462037c3b09b3a313"
+  },
+  "corpus/highlight/sdk/highlight-node/package.json": {
+    "url": "https://raw.githubusercontent.com/highlight/highlight/7a297b5fea4233d99e92177f53dada3236513616/sdk/highlight-node/package.json",
+    "sha256": "fe44e81f3977cbbbc37d4da7531e084304fa0a056a5bfa56e7be175efbb0c4e1"
+  },
+  "corpus/highlight/packages/ui/package.json": {
+    "url": "https://raw.githubusercontent.com/highlight/highlight/7a297b5fea4233d99e92177f53dada3236513616/packages/ui/package.json",
+    "sha256": "efbdeff88d4e6126a15fb264d9b8a809283299858e7d5358c9b976431fdc833e"
+  },
+  "corpus/highlight/LICENSE": {
+    "url": "https://raw.githubusercontent.com/highlight/highlight/7a297b5fea4233d99e92177f53dada3236513616/LICENSE",
+    "sha256": "da6629617d64fd394231028229e3a0c3c5953509525b86cd86ac58ea65e70eff"
+  },
+  "corpus/babel/package.json": {
+    "url": "https://raw.githubusercontent.com/babel/babel/ae5796912c3c12e0913c40050c10adfb231aa811/package.json",
+    "sha256": "c331afc6431c6f6e0dedf3d122d9fb230383b771c0cf384971b297a1314ebb03"
+  },
+  "corpus/babel/yarn.lock": {
+    "url": "https://raw.githubusercontent.com/babel/babel/ae5796912c3c12e0913c40050c10adfb231aa811/yarn.lock",
+    "sha256": "7cdfdebf9451b8434b6b072abf13f61a9ee3098820180a70ee0272d7cea7af7c",
+    "project": {
+      "schema": 9,
+      "manager": "pm-yarn-berry-v9"
+    }
+  },
+  "corpus/babel/packages/babel-core/package.json": {
+    "url": "https://raw.githubusercontent.com/babel/babel/ae5796912c3c12e0913c40050c10adfb231aa811/packages/babel-core/package.json",
+    "sha256": "a208871307994819d283c8600cdc953f1612db8df07cff17f4dc9874fed4b6ce"
+  },
+  "corpus/babel/packages/babel-cli/package.json": {
+    "url": "https://raw.githubusercontent.com/babel/babel/ae5796912c3c12e0913c40050c10adfb231aa811/packages/babel-cli/package.json",
+    "sha256": "47340e56ad9afef1d7c2877a636674bb08cde8498549585920eb5bd3e9089ba1"
+  },
+  "corpus/babel/test/runtime-integration/rollup/package.json": {
+    "url": "https://raw.githubusercontent.com/babel/babel/ae5796912c3c12e0913c40050c10adfb231aa811/test/runtime-integration/rollup/package.json",
+    "sha256": "576f992d9b3251fffcb411b3cff5a3c6f98bcc1b56bee6bca818a2c3886a2ec0"
+  },
+  "corpus/babel/LICENSE": {
+    "url": "https://raw.githubusercontent.com/babel/babel/ae5796912c3c12e0913c40050c10adfb231aa811/LICENSE",
+    "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
+  },
+  "corpus/jest-30/package.json": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/4c3091b4204d703f4ebe343b8ac9d8a28ac4388e/package.json",
+    "sha256": "adfc3b0b870afafb6d2b887f1c95d8ef159737f982aae6df47fb6ce7c3dc9adc"
+  },
+  "corpus/jest-30/yarn.lock": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/4c3091b4204d703f4ebe343b8ac9d8a28ac4388e/yarn.lock",
+    "sha256": "d224bbcde86ad30034df7e75374f20776e321e14d79c7c4c7f1be8fb764ab72b",
+    "project": {
+      "schema": 10,
+      "manager": "pm-yarn-berry-v10"
+    }
+  },
+  "corpus/jest-30/packages/jest-config/package.json": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/4c3091b4204d703f4ebe343b8ac9d8a28ac4388e/packages/jest-config/package.json",
+    "sha256": "2fcb95a6baa7c3b879af8b25906c1540eac26a7c49e7381381da14b540882e5a"
+  },
+  "corpus/jest-30/packages/jest-reporters/package.json": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/4c3091b4204d703f4ebe343b8ac9d8a28ac4388e/packages/jest-reporters/package.json",
+    "sha256": "685db4547939b61f6a589de438af420426fcee611824e19a0af074ae87ed4416"
+  },
+  "corpus/jest-30/packages/jest-runtime/package.json": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/4c3091b4204d703f4ebe343b8ac9d8a28ac4388e/packages/jest-runtime/package.json",
+    "sha256": "c9bc4ac6e9dc220354dd432b289790dd2bdb6525e4aebe0e27b725a97766cfbc"
+  },
+  "corpus/jest-30/LICENSE": {
+    "url": "https://raw.githubusercontent.com/jestjs/jest/4c3091b4204d703f4ebe343b8ac9d8a28ac4388e/LICENSE",
+    "sha256": "9d5211db733ccdd26f9170bec24cdca84093f60415da6b769ee9cdf23d04e19f"
+  },
+  "corpus/berry-3/packages/yarnpkg-cli/package.json": {
+    "url": "https://raw.githubusercontent.com/yarnpkg/berry/8a82356039ae60f859daa8e6bda3ca681e7c2b0e/packages/yarnpkg-cli/package.json",
+    "sha256": "54ad8e6418cd20626dac212e9ca1e2e08e76ac73c5d55ec4e704d2a39129a933"
+  },
+  "corpus/berry-3/packages/yarnpkg-core/package.json": {
+    "url": "https://raw.githubusercontent.com/yarnpkg/berry/8a82356039ae60f859daa8e6bda3ca681e7c2b0e/packages/yarnpkg-core/package.json",
+    "sha256": "9268e547bd5897355080512a0da0b516fd4ba33cca4439e31987222f78cddc2e"
+  },
+  "corpus/berry-3/packages/yarnpkg-fslib/package.json": {
+    "url": "https://raw.githubusercontent.com/yarnpkg/berry/8a82356039ae60f859daa8e6bda3ca681e7c2b0e/packages/yarnpkg-fslib/package.json",
+    "sha256": "9a252dbb0f8a3af9e6a2b0b0aed2da0e42bc982cd2d165c3680dcbf9da3a1f93"
+  },
+  "corpus/berry-3/packages/yarnpkg-shell/package.json": {
+    "url": "https://raw.githubusercontent.com/yarnpkg/berry/8a82356039ae60f859daa8e6bda3ca681e7c2b0e/packages/yarnpkg-shell/package.json",
+    "sha256": "fff9f75afa04c7b11b5f82f66e0643f6a29eac66705eb6c35a0c1132c1fb5dcf"
+  },
+  "registry/balanced-match-1.0.0.tgz": {
+    "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.0.tgz",
+    "sha256": "2896602c12d3cef566bfbed7ccdef79232f4f1e00622fc5c9b40737465baffad"
+  },
+  "registry/minimatch-3.0.4.tgz": {
+    "url": "https://registry.npmjs.org/minimatch/-/minimatch-3.0.4.tgz",
+    "sha256": "426a24d79bb6f0d3bb133e62cec69021836d254b39d931c104ddd7c464adea71"
+  },
+  "registry/glob-7.1.6.tgz": {
+    "url": "https://registry.npmjs.org/glob/-/glob-7.1.6.tgz",
+    "sha256": "54b05170b446eced68494509bb23892d0b17fd2a2bf1596609bdf322c415a6c2"
+  },
+  "registry/glob.json": {
+    "url": "https://registry.npmjs.org/glob",
+    "format": "npm-metadata",
+    "versions": [
+      "7.1.6"
+    ],
+    "distTags": {
+      "latest": "7.1.6"
+    },
+    "sha256": "533fcb6a37af713a82497676f492ab0748db59591a775a4b546e1433e0da5eb7"
+  },
+  "registry/fs.realpath-1.0.0.tgz": {
+    "url": "https://registry.npmjs.org/fs.realpath/-/fs.realpath-1.0.0.tgz",
+    "sha256": "9e80cb8713125aa53df81a29626f7b81f26a9be1cd41840b3ccdcae4d52e8f9c"
+  },
+  "registry/fs.realpath.json": {
+    "url": "https://registry.npmjs.org/fs.realpath",
+    "format": "npm-metadata",
+    "versions": [
+      "1.0.0"
+    ],
+    "distTags": {
+      "latest": "1.0.0"
+    },
+    "sha256": "b27c66b7eb8cd5a1839f844d68fc4f65c8b2d8fc0630a73e7d5b10bc1b2508da"
+  },
+  "registry/inflight-1.0.6.tgz": {
+    "url": "https://registry.npmjs.org/inflight/-/inflight-1.0.6.tgz",
+    "sha256": "5a9fdcf59874af6ad3b413b6815d5afaaea34939a3bee20e1e50f7830031889b"
+  },
+  "registry/inflight.json": {
+    "url": "https://registry.npmjs.org/inflight",
+    "format": "npm-metadata",
+    "versions": [
+      "1.0.6"
+    ],
+    "distTags": {
+      "latest": "1.0.6"
+    },
+    "sha256": "84cfb212083ae33d1ec9af04271e151b8ea09dcfff1efde83028f02ec6413a21"
+  },
+  "registry/once-1.4.0.tgz": {
+    "url": "https://registry.npmjs.org/once/-/once-1.4.0.tgz",
+    "sha256": "cf51460ba370c698f68b976e514d113497339ba018b6003e8e8eb569c6fccfcf"
+  },
+  "registry/once.json": {
+    "url": "https://registry.npmjs.org/once",
+    "format": "npm-metadata",
+    "versions": [
+      "1.4.0"
+    ],
+    "distTags": {
+      "latest": "1.4.0"
+    },
+    "sha256": "433a3c0446b87c164c10faf254528ccd4eeacbee3edb946528878e156e8d69a1"
+  },
+  "registry/wrappy-1.0.2.tgz": {
+    "url": "https://registry.npmjs.org/wrappy/-/wrappy-1.0.2.tgz",
+    "sha256": "aff3730d91b7b1e143822956d14608f563163cf11b9d0ae602df1fe1e430fdfb"
+  },
+  "registry/wrappy.json": {
+    "url": "https://registry.npmjs.org/wrappy",
+    "format": "npm-metadata",
+    "versions": [
+      "1.0.2"
+    ],
+    "distTags": {
+      "latest": "1.0.2"
+    },
+    "sha256": "3490cb7699002ecaca49908d9776212cdadcc17981d7733481f41ee9799702fa"
+  },
+  "registry/inherits-2.0.4.tgz": {
+    "url": "https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz",
+    "sha256": "d94dbc6c1bb3c5ac0fb12a73ade187108fc60de273a1b754f55044eb5e24afaf"
+  },
+  "registry/inherits.json": {
+    "url": "https://registry.npmjs.org/inherits",
+    "format": "npm-metadata",
+    "versions": [
+      "2.0.4"
+    ],
+    "distTags": {
+      "latest": "2.0.4"
+    },
+    "sha256": "598359a93e320815e1ecc1c4b14ceff51a2abd2b708ceceb3c2b131fed178172"
+  },
+  "registry/path-is-absolute-1.0.1.tgz": {
+    "url": "https://registry.npmjs.org/path-is-absolute/-/path-is-absolute-1.0.1.tgz",
+    "sha256": "6e6d709f1a56942514e4e2c2709b30c7b1ffa46fbed70e714904a3d63b01f75c"
+  },
+  "registry/path-is-absolute.json": {
+    "url": "https://registry.npmjs.org/path-is-absolute",
+    "format": "npm-metadata",
+    "versions": [
+      "1.0.1"
+    ],
+    "distTags": {
+      "latest": "1.0.1"
+    },
+    "sha256": "6d63e7f76c7a38ca93ff0ea131bcfb6d48a94976f1411280334b4bbd4c6fa4c6"
+  },
+  "registry/semver-7.3.2.tgz": {
+    "url": "https://registry.npmjs.org/semver/-/semver-7.3.2.tgz",
+    "sha256": "a16a584af6fd9984d2d9e9c2adcd6adaf1ebfadf6a94a46ceee540e84ee91989"
+  },
+  "registry/semver-7.3.5.tgz": {
+    "url": "https://registry.npmjs.org/semver/-/semver-7.3.5.tgz",
+    "sha256": "af1f802439e20980a10b03c879fcc89921793f51b95252e805a8ba8079a6599e"
+  },
+  "registry/semver-5.7.1.tgz": {
+    "url": "https://registry.npmjs.org/semver/-/semver-5.7.1.tgz",
+    "sha256": "fef2fb32aa27fc28c2e834336469d84615cb187449e3622caa2897a0535db56d"
+  },
+  "registry/semver-5.7.2.tgz": {
+    "url": "https://registry.npmjs.org/semver/-/semver-5.7.2.tgz",
+    "sha256": "e548374dbc4898ddcf349bde966885ac87949be21fd04cd096f53fef0ce655f9"
+  },
+  "registry/semver-6.3.0.tgz": {
+    "url": "https://registry.npmjs.org/semver/-/semver-6.3.0.tgz",
+    "sha256": "6bf14af3333843b62526ced99519918c7f6bf2cfe1c111556d36cf239a4c6745"
+  },
+  "registry/semver-6.3.1.tgz": {
+    "url": "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz",
+    "sha256": "3c9b042a38e099cbd00a9bd792042aefb62a70b3f0f1ba1a3cbddf07e5eb1230"
+  },
+  "registry/semver-7.0.0.tgz": {
+    "url": "https://registry.npmjs.org/semver/-/semver-7.0.0.tgz",
+    "sha256": "bf09fd16e1fc4b6748ac2c302705429d536e12d52ca44e01da7366138a953c72"
+  },
+  "registry/semver-7.5.2.tgz": {
+    "url": "https://registry.npmjs.org/semver/-/semver-7.5.2.tgz",
+    "sha256": "32f78290c12246206449f9a18cf3f7fab44828f06c17448b7e8954ff54ce0a9a"
+  },
+  "registry/semver-7.8.5.tgz": {
+    "url": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
+    "sha256": "d85045d4300d7d57c891336b95df532e73f34c22ffcd222452b6d08b9d127d5d"
+  },
+  "registry/semver.json": {
+    "url": "https://registry.npmjs.org/semver",
+    "format": "npm-metadata",
+    "versions": [
+      "7.3.2",
+      "7.3.5",
+      "5.7.1",
+      "5.7.2",
+      "6.3.0",
+      "6.3.1",
+      "7.0.0",
+      "7.5.2",
+      "7.8.5"
+    ],
+    "distTags": {
+      "latest": "7.8.5"
+    },
+    "sha256": "b8d1aef482a2046df259be515b142c449cbcb484fc402fb2dcd53d3d900e8717"
+  },
+  "registry/lru-cache-6.0.0.tgz": {
+    "url": "https://registry.npmjs.org/lru-cache/-/lru-cache-6.0.0.tgz",
+    "sha256": "5ce40deb031cf6968f3832502a68f8d26be09764dc4f8fc07957a2fd7e8cdf5e"
+  },
+  "registry/lru-cache.json": {
+    "url": "https://registry.npmjs.org/lru-cache",
+    "format": "npm-metadata",
+    "versions": [
+      "6.0.0"
+    ],
+    "distTags": {
+      "latest": "6.0.0"
+    },
+    "sha256": "fd02ecccd5d8d2f9f8f915bd2005c12cbdaaececc23a38a095457b784ec05e77"
+  },
+  "registry/yallist-4.0.0.tgz": {
+    "url": "https://registry.npmjs.org/yallist/-/yallist-4.0.0.tgz",
+    "sha256": "a80c78aa276536615891ef66efbc17d3bd07c8cb14e3bd5298eed3006bfa4d49"
+  },
+  "registry/yallist.json": {
+    "url": "https://registry.npmjs.org/yallist",
+    "format": "npm-metadata",
+    "versions": [
+      "4.0.0"
+    ],
+    "distTags": {
+      "latest": "4.0.0"
+    },
+    "sha256": "97ecf87356cfee586c79ca6c89ce2c4ca413724502a23f1b50a8f96f323da10a"
+  },
+  "audit/semver-bulk.json": {
+    "url": "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
+    "format": "npm-audit",
+    "requestBody": {
+      "semver": [
+        "5.7.1",
+        "6.3.0",
+        "7.3.5"
+      ]
+    },
+    "advisoryIds": [
+      1112918,
+      1112921,
+      1112922
+    ],
+    "sha256": "99d4b9a5dcfc5318c4b46f2a96db8118c908be4f1690eb0d88f4072354df1a3f"
   }
 }

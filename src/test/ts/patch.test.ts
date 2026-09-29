@@ -71,3 +71,20 @@ it('rejects conflicting descriptor aliases instead of overwriting another record
 it('leaves the file untouched when no changes were planned', () => {
   expect(restoreDescriptorHeaders('unparsed content', [])).toBe('unparsed content');
 });
+
+it('emits valid explicit YAML keys when restored ranges exceed the simple-key limit', () => {
+  const changes = Array.from({ length: 70 }, (_, i) => ({ ...change, descriptor: `foo@npm:>=1.0.${i} <2` }));
+  const parents = Object.fromEntries(changes.map((item, i) => [`parent-${i}@workspace:${i}`, parent(item.descriptor.slice('foo@'.length))]));
+  const generated = text({ 'foo@npm:1.2.3': record(), ...parents });
+  const restored = restoreDescriptorHeaders(generated, changes);
+  const combined = changes.map(item => item.descriptor).sort().join(', ');
+  expect(restored).toContain(`? ${JSON.stringify(combined)}\n:\n`);
+  expect(parseLockfile(restored)[combined]).toEqual(parseLockfile(generated)['foo@npm:1.2.3']);
+  expect(restored).toBe(text({ [combined]: record(), ...parents }));
+});
+
+it.each(['? "other@npm:^1"\n:', '?\n  "other@npm:^1"\n:'])('preserves an unrelated explicit key: %s', header => {
+  const generated = text({ 'foo@npm:1.2.3': record(), 'other@npm:^1': { version: '1.0.0', resolution: 'other@npm:1.0.0' }, 'parent@workspace:.': parent('npm:^1') })
+    .replace('"other@npm:^1":', header);
+  expect(restoreDescriptorHeaders(generated, [change])).toBe(generated.replace('"foo@npm:1.2.3":', '"foo@npm:^1":'));
+});

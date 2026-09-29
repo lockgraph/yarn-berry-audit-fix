@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "target/smoke",
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src/test/ts/smoke.ts"]
+}

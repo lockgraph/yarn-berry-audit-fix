@@ -36,11 +36,14 @@ export function restoreDescriptorHeaders(text: string, changes: Change[]): strin
     if (requested.has(change.descriptor)) originals.add(change.descriptor);
   }
 
-  const headers = [...text.matchAll(/^("(?:[^"\\\r\n]|\\.)*"|__metadata):(?:\r?\n|$)/gm)];
+  const newline = text.includes('\r\n') ? '\r\n' : '\n';
+  // Native Yarn also emits plain legacy keys and YAML explicit keys longer than 1024 characters.
+  const headers = [...text.matchAll(/^(?:("(?:[^"\\\r\n]|\\.)*"|[^\s"'?#][^\r\n]*):|\? ("(?:[^"\\\r\n]|\\.)*")\r?\n:|\?\r?\n[ \t]+("(?:[^"\\\r\n]|\\.)*")\r?\n:)(?:\r?\n|$)/gm)];
   if (headers.length !== Object.keys(lock).length || !headers.length) throw new Error('Unsupported lockfile header layout');
   const seen = new Set<string>();
   const blocks = headers.map((match, index) => {
-    const key: string = match[1] === '__metadata' ? '__metadata' : JSON.parse(match[1]!);
+    const rawKey = (match[1] ?? match[2] ?? match[3])!;
+    const key: string = rawKey.startsWith('"') ? JSON.parse(rawKey) : rawKey;
     if (!Object.hasOwn(lock, key)) throw new Error(`Unrecognized lockfile header: ${key}`);
     const keys = new Set(key.split(/,\s+/));
     for (const descriptor of [...keys]) {
@@ -55,12 +58,13 @@ export function restoreDescriptorHeaders(text: string, changes: Change[]): strin
       seen.add(descriptor);
     }
     const nextKey = [...keys].sort().join(', ');
-    const header = nextKey === key ? match[0].trimEnd() : `${JSON.stringify(nextKey)}:`;
+    const quoted = JSON.stringify(nextKey);
+    const replacement = quoted.length > 1024 ? `? ${quoted}${newline}:` : `${quoted}:`;
+    const header = nextKey === key ? match[0].trimEnd() : replacement;
     const body = text.slice(match.index! + match[0].length, headers[index + 1]?.index ?? text.length).replace(/(?:\r?\n)+$/, '');
     return { key: nextKey, header, body };
   });
   // Yarn sorts records by their request keys; renaming can change their order.
   blocks.sort((a, b) => a.key === '__metadata' ? -1 : b.key === '__metadata' ? 1 : a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
-  const newline = text.includes('\r\n') ? '\r\n' : '\n';
   return text.slice(0, headers[0]!.index) + blocks.map(block => `${block.header}${newline}${block.body}`).join(`${newline}${newline}`) + newline;
 }

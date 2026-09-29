@@ -3,13 +3,22 @@ import { gunzipSync } from 'node:zlib';
 import semver from 'semver';
 import { readFixture, readFixtureManifest } from './build-fixtures.js';
 
-export const bulk = JSON.parse((await readFixture('audit/brace-expansion-bulk.json')).toString());
+const fixtures = await readFixtureManifest();
+export const bulk: Record<string, Record<string, unknown>[]> = {};
+for (const [name, fixture] of Object.entries(fixtures)) {
+  if (fixture.format === 'npm-audit') Object.assign(bulk, JSON.parse((await readFixture(name)).toString()));
+}
 
 /** Serve pinned metadata and downloaded npm archives; only the audit transport is simulated. */
 export async function startRegistry() {
   const archives = new Map<string, Buffer>();
-  for (const name of Object.keys(await readFixtureManifest())) {
+  const metadata = new Map<string, string>();
+  for (const [name, fixture] of Object.entries(fixtures)) {
     if (name.endsWith('.tgz')) archives.set(name.split('/').at(-1)!, await readFixture(name));
+    if (fixture.format === 'npm-metadata') {
+      const data = (await readFixture(name)).toString();
+      metadata.set(JSON.parse(data).name, data);
+    }
   }
   let base = '';
   const requests: string[] = [];
@@ -45,7 +54,7 @@ export async function startRegistry() {
           }
         }
         res.end(JSON.stringify({ actions: [], advisories, metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: Object.keys(advisories).length, critical: 0 }, dependencies: 6, devDependencies: 0, optionalDependencies: 0, totalDependencies: 6 } }));
-      } else if (/^\/(?:tarballs|[\w-]+\/-)\/[\w.-]+\.tgz$/.test(path)) {
+      } else if (/^\/(?:tarballs|[\w.-]+\/-)\/[\w.-]+\.tgz$/.test(path)) {
         const tarball = archives.get(path.split('/').at(-1)!);
         if (!tarball) {
           res.statusCode = 404;
@@ -55,13 +64,13 @@ export async function startRegistry() {
         res.setHeader('content-type', 'application/octet-stream');
         res.setHeader('content-length', tarball.length);
         res.end(tarball);
-      } else if (/^\/[\w-]+$/.test(path)) {
+      } else if (metadata.has(path.slice(1))) {
         const name = path.slice(1);
-        const metadata = JSON.parse((await readFixture(`registry/${name}.json`)).toString());
-        for (const [version, info] of Object.entries(metadata.versions)) {
-          (info as { dist: { tarball: string } }).dist.tarball = `${base}/tarballs/${name}-${version}.tgz`;
+        const info = JSON.parse(metadata.get(name)!);
+        for (const [version, record] of Object.entries(info.versions)) {
+          (record as { dist: { tarball: string } }).dist.tarball = `${base}/tarballs/${name}-${version}.tgz`;
         }
-        res.end(JSON.stringify(metadata));
+        res.end(JSON.stringify(info));
       } else {
         res.statusCode = 404;
         res.end(JSON.stringify({ error: `Unexpected registry request: ${path}` }));

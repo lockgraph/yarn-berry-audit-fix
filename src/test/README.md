@@ -30,10 +30,13 @@ src/main/ts/                         Implementation and CLI
 src/test/ts/                         Tests, helpers, and fixture builder
 src/test/resources/real-world/
   provenance.json                   Tracked sources, recipes, and hashes
-  qiwi/                             Generated upstream files (ignored)
+  qiwi/                             Original qiwi snapshots (ignored)
+  corpus/                           Additional pinned monorepo snapshots (ignored)
   registry/                         Generated metadata and tarballs (ignored)
   audit/                            Generated advisory responses (ignored)
 target/main/                        Compiled JavaScript and declarations
+target/smoke/                       Compiled runtime smokes and copied fixtures
+target/smoke-managers/              Standalone Yarn bundles for CI
 ```
 
 ## Fixtures
@@ -48,14 +51,24 @@ A fresh checkout needs network access for dependency installation and fixture pr
 
 ### Sources and registry replay
 
-Complete lockfiles, manifests, and licenses come from pinned revisions of:
+The corpus is selected from the real-world collections in yarn-audit-fix and lockgraph. All assets are fetched directly from immutable upstream commits; no local checkout of those tools is needed.
 
-- [qiwi/masker](https://github.com/qiwi/masker/tree/1b3cf47948381e82cb775eb450cf7064b82c5d3d)
-- [qiwi/packasso](https://github.com/qiwi/packasso/tree/74a5f9c1f3d47546d7062028b582763db04064b5)
+| Fixture | Upstream revision | Native schema |
+| --- | --- | --- |
+| `qiwi/masker` | [qiwi/masker](https://github.com/qiwi/masker/tree/1b3cf47948381e82cb775eb450cf7064b82c5d3d) | 8 |
+| `qiwi/packasso` | [qiwi/packasso](https://github.com/qiwi/packasso/tree/74a5f9c1f3d47546d7062028b582763db04064b5) | 6 |
+| `corpus/jest-26` | [jestjs/jest](https://github.com/jestjs/jest/tree/b254fd82fdedcba200e1c7eddeaab83a09bdaaef) | 4 |
+| `corpus/berry-3` | [yarnpkg/berry](https://github.com/yarnpkg/berry/tree/8a82356039ae60f859daa8e6bda3ca681e7c2b0e) | 5 |
+| `corpus/mware` | [qiwi/mware](https://github.com/qiwi/mware/tree/ed822d4d23737268917097a07e46b9ac559bed43) | 6 |
+| `corpus/highlight` | [highlight/highlight](https://github.com/highlight/highlight/tree/7a297b5fea4233d99e92177f53dada3236513616) | 8 |
+| `corpus/babel` | [babel/babel](https://github.com/babel/babel/tree/ae5796912c3c12e0913c40050c10adfb231aa811) | 9 |
+| `corpus/jest-30` | [jestjs/jest](https://github.com/jestjs/jest/tree/4c3091b4204d703f4ebe343b8ac9d8a28ac4388e) | 10 |
 
-Planning tests use the complete upstream lockfiles. Native install tests extract a small `minimatch → brace-expansion → balanced-match/concat-map` subgraph using the original records and checksums, then prepare it with the selected Yarn CLI. The complete upstream monorepos are not built or tested.
+The `project` records in provenance select the integration corpus, its native Yarn manager, and the dependencies retained for install tests. All eight full lockfiles are checked under both version-selection policies. A header round-trip must preserve the entire native file byte for byte, including plain legacy keys, long explicit YAML keys, patches, aliases, links, peer metadata, conditions, and checksums. This checks header handling separately from version selection; it does not simulate a full upstream installation.
 
-The local registry serves genuine npm tarballs and replays a saved advisory snapshot for `brace-expansion`. This registry protocol is used by `yarn npm audit`; the fixer does not invoke a separate `npm audit` process.
+Native monorepo cases retain the actual manifests' workspace paths, names, versions, dependency ranges, and links for selected Jest 26 and Yarn 3 workspaces. Unrelated dependencies and build hooks are removed from the test projection. The retained `glob` and `semver` dependency closures come from the original lockfiles and use genuine npm archives. Both node_modules and PnP are exercised, along with lockfile-only mode where the manager supports it, manifest restoration, installed versions, immutable installs, and idempotence. The full upstream applications are not built.
+
+The existing qiwi subgraph matrix still covers every pinned CLI. The local registry reads all metadata, tarballs, and advisory responses from provenance; it replays the pinned `brace-expansion` and `semver` audit snapshots. The fixer invokes `yarn npm audit`, not a separate `npm audit` process.
 
 ## Yarn matrix
 
@@ -85,8 +98,29 @@ For each successful fix, checks verify:
 - Yarn-generated package record bodies preserved while headers regain the original dependency ranges.
 - A subsequent native `install --immutable` leaves the lockfile byte-for-byte unchanged; Yarn 4 also uses `--check-resolutions`.
 
-The immutable install is a test oracle, not an extra install performed by the runtime fixer. Header patch tests also cover combined descriptors, exact pins, obsolete ranges, record ordering, and inconsistent results. Fixture builder tests cover cache reuse, corruption, failed downloads, hash verification, and metadata/advisory normalization.
+The immutable install is a test oracle, not an extra install performed by the runtime fixer. Planning tests cover lowest/highest selection, separate ranges, prereleases, incompatible versions, all reported advisories, existing resolutions, and invalid policies. A native install checks that the highest policy is used when more than one stable fix qualifies. Header patch tests also cover combined descriptors, exact pins, obsolete ranges, record ordering, and inconsistent results. Fixture builder tests cover cache reuse, corruption, failed downloads, hash verification, and metadata/advisory normalization.
 
 Peer-context edge cases, native build scripts, custom plugins, private registry authentication, and all supported Node/platform combinations are not comprehensively covered. A passing matrix does not replace the target application's tests.
 
-Last full verification: 2026-09-29, Node 24.13.1. `npm run check` passed 103 tests, type checking, and the build. All 21 external assets were rebuilt from provenance and verified; a repeated fixture build reused the cache. The compiled CLI was also checked for help, unknown mode rejection, and Yarn 2 lockfile-only rejection without input changes.
+## CI and runtime smokes
+
+[The CI workflow](../../.github/workflows/ci.yml) runs the full suite on Linux with Node 24, then passes the compiled CLI, smoke harness, fixture assets, and standalone Yarn bundles to three smoke jobs:
+
+| OS | Node | Check |
+| --- | --- | --- |
+| `ubuntu-latest` | `18.12.0` | Minimum supported runtime |
+| `ubuntu-latest` | `latest` | Newest Node release |
+| `windows-latest` | `latest` | Windows paths, process execution, and file restoration |
+
+Smoke jobs install production dependencies only and run compiled JavaScript. They do not load Vitest/Vite or use native TypeScript stripping. The harness invokes the actual CLI with Yarn 2, 3, and 4, checks dry runs, both install modes, a nested workspace, byte-preserving restoration, installed versions, immutable installs, idempotence, and invalid flags. Yarn is invoked through explicit JavaScript bundle paths, so a preinstalled Yarn Classic cannot shadow the selected version.
+
+To prepare and run the same smoke harness locally on the development Node version:
+
+```sh
+npm run build:test-fixtures
+npm run build
+npm run build:smoke
+npm run test:smoke
+```
+
+Once prepared, `node target/smoke/test/ts/smoke.js` can run on an older Node without rebuilding. Fixtures are copied to the compiled helper's resource directory, and the Yarn bundles are copied to `target/smoke-managers/`.

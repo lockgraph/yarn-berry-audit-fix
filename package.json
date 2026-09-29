@@ -1,7 +1,15 @@
 {
   "name": "yarn-berry-audit-fix",
-  "version": "0.0.0",
+  "version": "0.0.0-prerelease.0",
   "description": "An experimental Yarn Berry audit fixer using temporary resolutions",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lockgraph/yarn-berry-audit-fix.git"
+  },
+  "homepage": "https://github.com/lockgraph/yarn-berry-audit-fix#readme",
+  "bugs": {
+    "url": "https://github.com/lockgraph/yarn-berry-audit-fix/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=18.12"
@@ -23,9 +31,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:test-fixtures": "node --experimental-strip-types src/test/ts/build-fixtures.ts",
+    "build:smoke": "tsc -p tsconfig.smoke.json && node --experimental-strip-types src/test/ts/build-smoke.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "vitest run src/test/ts/integration.test.ts",
+    "test:integration": "vitest run integration",
+    "test:smoke": "node target/smoke/test/ts/smoke.js",
     "check": "npm run build:test-fixtures && npm run typecheck && npm test && npm run build",
     "start": "node target/main/cli.js"
   },

@@ -1,16 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { mkdtemp, mkdir, readFile, writeFile, rm, readdir, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
-import { stringifySyml } from '@yarnpkg/parsers';
-import { fixAudit, createRunner, type InstallMode } from '../../main/ts/index.js';
+import { fixAudit, type InstallMode } from '../../main/ts/index.js';
 import { descriptors, parseLockfile } from '../../main/ts/lockfile.js';
 import { requireSuccess, type Runner } from '../../main/ts/yarn.js';
 import { startRegistry } from './registry.js';
 import { managers } from './pm.js';
-import { readFixture } from './build-fixtures.js';
+import { prepareProject } from './project.js';
 
 const require = createRequire(import.meta.url);
 let registry: Awaited<ReturnType<typeof startRegistry>>;
@@ -24,32 +23,7 @@ afterAll(async () => {
 async function project(repo: string, yarn: string, workspace = false, rootRange = '^3.1.2') {
   const cwd = await mkdtemp(join(tmpdir(), 'berry-audit-fix-'));
   directories.push(cwd);
-  const raw = (await readFixture(`qiwi/${repo}/yarn.lock`)).toString();
-  const source = parseLockfile(raw);
-  // An actual dependency subgraph, retaining upstream descriptors, dependencies and checksums.
-  const lock = Object.fromEntries(Object.entries(source).filter(([key, entry]) => key === '__metadata' ||
-    ['minimatch@npm:3.1.2', 'minimatch@npm:9.0.3', 'brace-expansion@npm:1.1.11',
-      'brace-expansion@npm:2.0.1', 'balanced-match@npm:1.0.2', 'concat-map@npm:0.0.1'].includes(entry.resolution ?? '')));
-  const dependencies = { minimatch: rootRange };
-  const manifest = { name: 'fixture', private: true, ...(workspace ? { workspaces: ['packages/*'] } : {}), dependencies };
-  await writeFile(join(cwd, 'package.json'), JSON.stringify(manifest, null, '\t') + '\n');
-  if (workspace) {
-    await mkdir(join(cwd, 'packages/child'), { recursive: true });
-    await writeFile(join(cwd, 'packages/child/package.json'), '{ "name": "child", "dependencies": { "minimatch": "^9.0.3" } }\n');
-  }
-  await writeFile(join(cwd, 'yarn.lock'), stringifySyml(lock));
-  await writeFile(join(cwd, '.yarnrc.yml'), `npmRegistryServer: "${registry.url}"\nunsafeHttpWhitelist:\n  - 127.0.0.1\nenableGlobalCache: false\nglobalFolder: "${cwd}/.global"\nenableTelemetry: false\nenableScripts: false\ncompressionLevel: mixed\nnodeLinker: node-modules\n`);
-  const actual = createRunner([process.execPath, require.resolve(`${yarn}/bin/yarn.js`)]);
-  const runner: Runner = (args, options) => actual(args, {
-    ...options, env: { ...options.env, YARN_IGNORE_PATH: '1', YARN_ENABLE_IMMUTABLE_INSTALLS: 'false', YARN_ENABLE_SCRIPTS: 'false' },
-  });
-  const run = (args: string[]) => runner(args, { cwd, env: process.env });
-  // Each producer must normalize both schema and cache checksums. Lockfile-only
-  // would retain foreign checksums when downgrading the upstream Yarn 4 fixture.
-  requireSuccess(await run(['install']), 'Prepare native fixture');
-  await rm(join(cwd, 'node_modules'), { recursive: true, force: true });
-  if (workspace) await rm(join(cwd, 'packages/child/node_modules'), { recursive: true, force: true });
-  return { cwd, runner, run };
+  return prepareProject(cwd, registry.url, require.resolve(`${yarn}/bin/yarn.js`), { repo, workspace, rootRange });
 }
 
 describe.each(managers)('Yarn $version / lockfile v$schema', ({ alias: yarn, version, schema }) => {

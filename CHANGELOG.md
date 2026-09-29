@@ -1,3 +1,9 @@
+## [0.1.1](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.1.0...v0.1.1) (2026-09-29)
+
+### Fixes & improvements
+* docs: add badges ([9eb1330](https://github.com/lockgraph/yarn-berry-audit-fix/commit/9eb1330eced014bb1a39fa225ff52acc46a2dfcf))
+* perf: minor code imprs ([c310235](https://github.com/lockgraph/yarn-berry-audit-fix/commit/c3102356182ad29e489e8dbf8dd2c70d8873827d))
+
 ## [0.1.0](https://github.com/lockgraph/yarn-berry-audit-fix/compare/undefined...v0.1.0) (2026-09-29)
 
 ### Features

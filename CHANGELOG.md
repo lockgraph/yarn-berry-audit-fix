@@ -1,3 +1,8 @@
+## [0.4.0](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.3.0...v0.4.0) (2026-09-29)
+
+### Features
+* feat: introduce `--silent` and `--dry-run` opts ([b84e6aa](https://github.com/lockgraph/yarn-berry-audit-fix/commit/b84e6aadf139bd483537be518dbdae31d9c6ae2f))
+
 ## [0.3.0](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.2.1...v0.3.0) (2026-09-29)
 
 ### Features

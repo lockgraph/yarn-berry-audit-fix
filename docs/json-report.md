@@ -7,6 +7,8 @@ jq '{meta, status, summary, cves}' audit-fix.json
 
 `--quiet` suppresses Yarn's own installation logs. The fixer's stdout contains one JSON object; progress and warnings go to stderr. Warnings are also included in the report. `--silent` suppresses all output, including JSON. Explicit `--help` and `--version` requests keep their usual text output.
 
+For scheduled fixes and automated pull requests, see the [GitHub Actions example](github-actions.md).
+
 Selected fields from an illustrative run:
 
 ```json

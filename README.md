@@ -49,6 +49,8 @@ Exit codes: `0` for a clean audit, dry run, or `--ignore-unfixed`; `1` for remai
 
 For automation, see the [JSON report format](docs/json-report.md). Stdout contains one JSON object; progress goes to stderr. `--dry-run --json` reports planned changes without claiming any CVEs have been resolved.
 
+[GitHub Actions example](docs/github-actions.md): scheduled fixes, `yarn dedupe`, and a pull request with the fixer output as its description.
+
 Each bump lists the advisories it resolves, with CVE IDs and CVSS scores when available. The CLI supplements missing metadata from GitHub's public Advisory API; a custom `--audit-registry` uses only its supplied metadata. CVSS is displayed only alongside CVE IDs; findings without a CVE show their GHSA ID alone. Unknown CVE scores are shown as unavailable. Failed supplementary lookups produce warnings without failing the repair.
 
 ## API

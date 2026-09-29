@@ -34,7 +34,7 @@ jobs:
       - name: Run zizmor
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: zizmor --config .github/zizmor.yml --persona auditor --format sarif . > zizmor.sarif
+        run: zizmor --config .github/zizmor.yml --persona auditor --format sarif . docs/examples/yarn-audit-fix.yml > zizmor.sarif
       - name: Upload SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v4

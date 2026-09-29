@@ -8,6 +8,7 @@ const originalArgv = process.argv;
 const originalExitCode = process.exitCode;
 const signals = ['SIGINT', 'SIGTERM'] as const;
 let listeners: NodeJS.SignalsListener[][];
+let warningListeners: NodeJS.WarningListener[];
 const advisory = { id: '1', name: 'foo', vulnerable: '<1.2.3' };
 const change = { name: 'foo', descriptor: 'foo@npm:^1', from: '1.0.0', to: '1.2.3', advisories: [] };
 const report = (overrides: Partial<FixResult> = {}): FixResult => ({
@@ -23,6 +24,7 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   process.exitCode = undefined;
   listeners = signals.map(signal => process.listeners(signal));
+  warningListeners = process.listeners('warning');
 });
 
 afterEach(() => {
@@ -30,6 +32,7 @@ afterEach(() => {
   process.exitCode = originalExitCode;
   vi.restoreAllMocks();
   signals.forEach((signal, index) => expect(process.listeners(signal)).toEqual(listeners[index]));
+  expect(process.listeners('warning')).toEqual(warningListeners);
 });
 
 async function run(...args: string[]) {
@@ -77,11 +80,98 @@ it('passes options to the fixer and keeps progress and warnings out of JSON outp
 });
 
 it('describes proposed fixes without failing a dry run that still has advisories', async () => {
-  vi.mocked(fixAudit).mockResolvedValue(report({ dryRun: true, changes: [change], remaining: [advisory] }));
+  vi.mocked(fixAudit).mockResolvedValue(report({ dryRun: true, changes: [change], before: [advisory], remaining: [advisory] }));
   await run('--dry-run');
+  expect(console.log).toHaveBeenCalledWith('Dry run: 1 planned fix(es) across 1 package(s); 0 skipped request(s). No files changed.');
   expect(console.log).toHaveBeenCalledWith('Would fix foo@npm:^1: 1.0.0 -> 1.2.3');
   expect(console.log).toHaveBeenCalledWith('1 advisory record(s) in the initial audit.');
   expect(process.exitCode).toBe(0);
+});
+
+it('counts dependency requests separately from package names in the dry-run digest', async () => {
+  vi.mocked(fixAudit).mockResolvedValue(report({ dryRun: true,
+    changes: [change, { ...change, descriptor: 'foo@npm:~1.0.0' }],
+    skipped: [{ name: 'foo', descriptor: 'foo@npm:1.0.0', version: '1.0.0', reason: 'Exact pin' }],
+    before: [advisory], remaining: [advisory],
+  }));
+  await run('--dry-run', '--mode=update-lockfile');
+  expect(console.log).toHaveBeenCalledWith('Dry run: 2 planned fix(es) across 1 package(s); 1 skipped request(s). No files changed.');
+  expect(console.log).toHaveBeenCalledWith('Skipped foo@npm:1.0.0: Exact pin');
+  expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('run yarn install'));
+});
+
+it.each([{ before: [] }, { before: [advisory] }])('shows a dry-run digest even when no fixes are possible: $before', async ({ before }) => {
+  vi.mocked(fixAudit).mockResolvedValue(report({ dryRun: true, before, remaining: before }));
+  await run('--dry-run');
+  expect(console.log).toHaveBeenCalledWith('Dry run: 0 planned fix(es) across 0 package(s); 0 skipped request(s). No files changed.');
+  expect(console.log).toHaveBeenCalledWith(`${before.length} advisory record(s) in the initial audit.`);
+  expect(process.exitCode).toBe(0);
+});
+
+it.each(['--help', '-h', '--version', '-v'])('silences %s without inspecting a project', async flag => {
+  await run(flag, '--silent');
+  expect(fixAudit).not.toHaveBeenCalled();
+  expect(console.log).not.toHaveBeenCalled();
+  expect(console.error).not.toHaveBeenCalled();
+  expect(process.exitCode).toBeUndefined();
+});
+
+it.each([
+  { args: [], remaining: [], code: 0 },
+  { args: [], remaining: [advisory], code: 1 },
+  { args: ['--json'], remaining: [advisory], code: 1 },
+  { args: ['--ignore-unfixed'], remaining: [advisory], code: 0 },
+  { args: ['--dry-run'], remaining: [advisory], code: 0 },
+  { args: ['--dry-run', '--json'], remaining: [advisory], code: 0 },
+])('silences results, progress and warnings while preserving exit code $code: $args', async ({ args, remaining, code }) => {
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  vi.mocked(fixAudit).mockImplementation(async options => {
+    options?.onProgress?.('Auditing');
+    process.emit('warning', new Error('Runtime warning'));
+    return report({ dryRun: !!options?.dryRun, remaining, warnings: ['Audit warning'],
+      changes: [{ ...change, advisories: [{ ...advisory, ghsaId: 'GHSA-v6h2-p8h4-qcjw' }] }],
+    });
+  });
+  await run('--silent', ...args);
+  expect(fixAudit).toHaveBeenCalledOnce();
+  expect(fetch).not.toHaveBeenCalled();
+  expect(console.log).not.toHaveBeenCalled();
+  expect(console.error).not.toHaveBeenCalled();
+  expect(process.exitCode).toBe(code);
+});
+
+it.each([
+  ['--unknown', '--silent'], ['--silent', '--unknown'], ['--silent', '--cwd'],
+  ['--silent', '--mode=unknown'], ['--silent', '--policy=unknown'], ['--silent', '--audit-registry=not-a-url'],
+])('fails quietly on invalid arguments: %j', async (...args) => {
+  await run(...args);
+  expect(fixAudit).not.toHaveBeenCalled();
+  expect(console.log).not.toHaveBeenCalled();
+  expect(console.error).not.toHaveBeenCalled();
+  expect(process.exitCode).toBe(2);
+});
+
+it.each([undefined, 'SIGINT', 'SIGTERM'] as const)('fails quietly on execution errors and interruption: %s', async signal => {
+  vi.mocked(fixAudit).mockImplementation(async options => {
+    if (signal) process.emit(signal);
+    throw options?.signal?.reason ?? new Error('Install failed');
+  });
+  await run('--silent', '--ignore-unfixed');
+  expect(console.log).not.toHaveBeenCalled();
+  expect(console.error).not.toHaveBeenCalled();
+  expect(process.exitCode).toBe(signal ? 130 : 2);
+});
+
+it('does not treat a string option value as the silent flag', async () => {
+  await run('--cwd=--silent');
+  expect(console.log).toHaveBeenCalled();
+  expect(fixAudit).toHaveBeenCalledWith(expect.objectContaining({ cwd: '--silent' }));
+});
+
+it('does not treat a positional argument after -- as the silent flag', async () => {
+  await run('--', '--silent');
+  expect(console.error).toHaveBeenCalled();
+  expect(process.exitCode).toBe(2);
 });
 
 it('reports installed fixes, removed dependencies and skipped requests with a nonzero result for remaining advisories', async () => {

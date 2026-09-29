@@ -28,12 +28,13 @@ yarn dlx yarn-berry-audit-fix --ignore-unfixed
 
 | Option | Effect |
 | --- | --- |
-| `--dry-run` | Preview compatible fixes without installing or editing manifests or the lockfile. |
+| `--dry-run` | Change no project files; print a digest of planned fixes, affected packages, skipped requests, and initial advisories. No install is performed. |
 | `--policy=lowest\|highest` | Select the lowest (default) or highest newer stable version within each original range that avoids all reported vulnerabilities. |
 | `--mode=update-lockfile` | Update the lockfile without linking or building. Requires Yarn 3+; rejected on Yarn 2. May download packages to the cache. |
 | `--audit-registry URL` | Send project and candidate audits directly to this registry using the bulk API. Works with Yarn 2/3/4; metadata and downloads keep their existing registry settings. |
 | `--cwd DIR` | Use another project root. |
 | `--json` | Print the report as JSON, including planned/applied changes, skipped requests, remaining advisories, and warnings. |
+| `--silent` | Write nothing to stdout or stderr, including errors. Overrides JSON, help, version, and dry-run output; exit codes stay unchanged. |
 | `--ignore-unfixed` | Exit successfully when advisories remain. Keeps the findings visible; execution errors and interruption still fail. |
 | `--yarn-path FILE` | Run a specific Yarn JavaScript bundle instead of `yarn` from PATH. |
 | `--help`, `-h` | Show command help without accessing a project. |

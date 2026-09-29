@@ -1,5 +1,6 @@
 import { isVulnerable, type Advisory } from './audit.js';
 import type { Change } from './plan.js';
+import type { FixResult, InstallMode } from './index.js';
 
 export interface ReportedChange extends Change { advisories: Advisory[] }
 
@@ -24,4 +25,18 @@ export function changeLines(change: ReportedChange, dryRun: boolean): string[] {
     const score = advisory.cvss ? advisory.cvss.score.toFixed(1) : 'unavailable';
     return `  ${advisory.cves.join(', ')} (CVSS ${score})`;
   })];
+}
+
+export function reportLines(result: FixResult, mode?: InstallMode): string[] {
+  const lines = result.changes.flatMap(change => changeLines(change, result.dryRun));
+  for (const skip of result.skipped) lines.push(`Skipped ${skip.descriptor}: ${skip.reason}`);
+  if (result.dryRun) {
+    const packages = new Set(result.changes.map(change => change.name)).size;
+    lines.unshift(`Dry run: ${result.changes.length} planned fix(es) across ${packages} package(s); ${result.skipped.length} skipped request(s). No files changed.`);
+    lines.push(`${result.before.length} advisory record(s) in the initial audit.`);
+  } else {
+    lines.push(`${result.remaining.length} advisory record(s) remaining.`);
+    if (result.changed && mode === 'update-lockfile') lines.push('package.json restored; run yarn install to update the installed tree.');
+  }
+  return lines;
 }

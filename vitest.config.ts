@@ -11,6 +11,7 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       include: ['src/main/**/*.ts'],
       reportOnFailure: true,
+      thresholds: { lines: 95 },
     },
   },
 });

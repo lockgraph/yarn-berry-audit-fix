@@ -94,7 +94,9 @@ The runtime accepts stable Berry releases from 2.4 through 4.x, excluding 4.0.0 
 
 Run `qlty smells --all` to check maintainability locally. The [Qlty configuration](../../.qlty/qlty.toml) uses default smell thresholds, identifies `src/test` as test code, and excludes dependencies and build output.
 
-`test:coverage` measures `src/main/**/*.ts` with V8 and writes LCOV and HTML reports to `target/coverage`. CI saves the report as an artifact. On pushes to `master`, the release job uploads `target/coverage/lcov.info` to Qlty with the repository's `QLTY_COVERAGE_TOKEN` before publishing the package.
+`test:coverage` measures `src/main/**/*.ts` with V8, requires at least 95% line coverage, and writes LCOV and HTML reports to `target/coverage`. CI saves the report as an artifact. On pushes to `master`, the release job uploads `target/coverage/lcov.info` to Qlty with the repository's `QLTY_COVERAGE_TOKEN` before publishing the package.
+
+CLI tests exercise argument parsing, output, exit codes, progress and signal handling with the fixer mocked at the API boundary; the native CLI smokes below verify the complete process. Failure-path tests exercise real filesystem rollback, invalid workspaces, concurrent edits and cancellation. Runner tests launch real child processes to check failures, signals and output limits.
 
 Integration tests cover root projects and workspaces, multiple semver branches, `node_modules` and PnP installations, both install modes, existing installed trees, idempotence, incompatible pins, and rollback on failure. They also capture Yarn 2/3 audit omissions when multiple versions of a package coexist.
 

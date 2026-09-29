@@ -1,5 +1,9 @@
 # yarn-berry-audit-fix
 
+[![Maintainability](https://qlty.sh/gh/lockgraph/projects/yarn-berry-audit-fix/maintainability.svg)](https://qlty.sh/gh/lockgraph/projects/yarn-berry-audit-fix)
+[![Code Coverage](https://qlty.sh/gh/lockgraph/projects/yarn-berry-audit-fix/coverage.svg)](https://qlty.sh/gh/lockgraph/projects/yarn-berry-audit-fix)
+[![npm version](https://img.shields.io/npm/v/yarn-berry-audit-fix/latest)](https://www.npmjs.com/package/yarn-berry-audit-fix)
+
 Fix vulnerable Yarn Berry dependencies with semver-compatible updates. Yarn installs the fixes; your `package.json` files stay unchanged.
 
 ## TL;DR

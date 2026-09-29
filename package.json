@@ -1,0 +1,50 @@
+{
+  "name": "yarn-berry-audit-fix",
+  "version": "0.0.0",
+  "description": "An experimental Yarn Berry audit fixer using temporary resolutions",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "bin": {
+    "yarn-berry-audit-fix": "target/main/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./target/main/index.d.ts",
+      "import": "./target/main/index.js"
+    }
+  },
+  "files": [
+    "target/main",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "build:test-fixtures": "node --experimental-strip-types src/test/ts/build-fixtures.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run src/test/ts/integration.test.ts",
+    "check": "npm run build:test-fixtures && npm run typecheck && npm test && npm run build",
+    "start": "node target/main/cli.js"
+  },
+  "dependencies": {
+    "@yarnpkg/parsers": "^3.0.3",
+    "semver": "^7.7.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/semver": "^7.7.1",
+    "pm-yarn-2": "npm:yarn@2.4.3",
+    "pm-yarn-berry-v10": "npm:@yarnpkg/cli-dist@4.18.1",
+    "pm-yarn-berry-v5": "npm:@yarnpkg/cli-dist@3.1.1",
+    "pm-yarn-berry-v6": "npm:@yarnpkg/cli-dist@3.8.7",
+    "pm-yarn-berry-v8": "npm:@yarnpkg/cli-dist@4.13.0",
+    "pm-yarn-berry-v9": "npm:@yarnpkg/cli-dist@4.14.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0",
+    "yarn-4": "npm:@yarnpkg/cli-dist@4.2.2"
+  },
+  "license": "MIT"
+}

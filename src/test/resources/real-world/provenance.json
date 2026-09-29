@@ -1,0 +1,139 @@
+{
+  "qiwi/masker/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/masker/1b3cf47948381e82cb775eb450cf7064b82c5d3d/package.json",
+    "sha256": "56464fc8b7344af8bfd9cd29fb260525262d76410dcde83a97a1a60fde1b5de0"
+  },
+  "qiwi/masker/yarn.lock": {
+    "url": "https://raw.githubusercontent.com/qiwi/masker/1b3cf47948381e82cb775eb450cf7064b82c5d3d/yarn.lock",
+    "sha256": "65f47fd4ae170d74d38042dfcc6e93dbfee33187a626a0f4127c0e2d32073a63"
+  },
+  "qiwi/masker/LICENSE": {
+    "url": "https://raw.githubusercontent.com/qiwi/masker/1b3cf47948381e82cb775eb450cf7064b82c5d3d/LICENSE",
+    "sha256": "fe4fdb0c8c93f66bf6cb5de4797591322cb0955d4cbaa431dcf2c5894ba79a13"
+  },
+  "qiwi/packasso/package.json": {
+    "url": "https://raw.githubusercontent.com/qiwi/packasso/74a5f9c1f3d47546d7062028b582763db04064b5/package.json",
+    "sha256": "55e7644726ef9a26bdf704ddc3af919e34cef15170afe88c1e81b511223a2b38"
+  },
+  "qiwi/packasso/yarn.lock": {
+    "url": "https://raw.githubusercontent.com/qiwi/packasso/74a5f9c1f3d47546d7062028b582763db04064b5/yarn.lock",
+    "sha256": "381662990b2fba106085fdf5a3fdb60f4d08ec26f9ac2bbc0a69814d24223c52"
+  },
+  "qiwi/packasso/LICENSE": {
+    "url": "https://raw.githubusercontent.com/qiwi/packasso/74a5f9c1f3d47546d7062028b582763db04064b5/LICENSE",
+    "sha256": "e93686b9991f59aec49f60906219620b9df45597f9d8831286845edb01bf5ad8"
+  },
+  "registry/minimatch-3.1.2.tgz": {
+    "url": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.2.tgz",
+    "sha256": "13964b10b60a3b66dd6eec90a2d39af28590721b8c9d1df8ff754f90b081a34d"
+  },
+  "registry/minimatch-9.0.3.tgz": {
+    "url": "https://registry.npmjs.org/minimatch/-/minimatch-9.0.3.tgz",
+    "sha256": "23ea756454debe6b8e6d15cdea446d93e18d773175b6f939f82e90060850959f"
+  },
+  "registry/brace-expansion-1.1.11.tgz": {
+    "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.11.tgz",
+    "sha256": "84bd645925eb665a04c19c66eb9da8499d9c17d0d62b4b979d085dcae99695da"
+  },
+  "registry/brace-expansion-1.1.12.tgz": {
+    "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.12.tgz",
+    "sha256": "95d2bea840be54653d22a096256d86ccd9f7d8191e4d9b9c5ae23e6df53bcac8"
+  },
+  "registry/brace-expansion-2.0.1.tgz": {
+    "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.0.1.tgz",
+    "sha256": "2464127da41da50df97281c4cdbeeb66b353c8eebd09c35507bb649e66d80141"
+  },
+  "registry/brace-expansion-2.0.2.tgz": {
+    "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.0.2.tgz",
+    "sha256": "e363c68e40fc83ab1c4a58b7954ac089534a8054d0dbfac2a1fc577cd387ae75"
+  },
+  "registry/balanced-match-1.0.2.tgz": {
+    "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+    "sha256": "d854f7abdd0c7a8120cf381e0ad5f972cbd0255f5d987424bd672c8c4fcebcc1"
+  },
+  "registry/concat-map-0.0.1.tgz": {
+    "url": "https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz",
+    "sha256": "35902dd620cf0058c49ea614120f18a889d984269a90381b7622e79c2cfe4261"
+  },
+  "registry/brace-expansion-1.1.18.tgz": {
+    "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.18.tgz",
+    "sha256": "a389b049d80469568280b906a8c6d210c7f7f1d2070d3e55cff9d59b526f69a4"
+  },
+  "registry/brace-expansion-2.1.4.tgz": {
+    "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.4.tgz",
+    "sha256": "a2c1ca92b3099d8c464b085b85b9bfdfe680aba8f10a86c227d7a090f36b27ae"
+  },
+  "registry/balanced-match.json": {
+    "url": "https://registry.npmjs.org/balanced-match",
+    "format": "npm-metadata",
+    "versions": [
+      "1.0.2"
+    ],
+    "distTags": {
+      "latest": "1.0.2"
+    },
+    "sha256": "0b6b0216d8e34aefaff18ba9e0c3bb3b1be38a92e9248ad08786a4448e33d4b8"
+  },
+  "registry/brace-expansion.json": {
+    "url": "https://registry.npmjs.org/brace-expansion",
+    "format": "npm-metadata",
+    "versions": [
+      "1.1.11",
+      "1.1.12",
+      "2.0.1",
+      "2.0.2",
+      "1.1.18",
+      "2.1.4"
+    ],
+    "distTags": {
+      "latest": "2.1.4"
+    },
+    "sha256": "be027d2bc7db2e777c705f055f7940a4f8ad71f1241dfd72ae87fed3e7881565"
+  },
+  "registry/concat-map.json": {
+    "url": "https://registry.npmjs.org/concat-map",
+    "format": "npm-metadata",
+    "versions": [
+      "0.0.1"
+    ],
+    "distTags": {
+      "latest": "0.0.1"
+    },
+    "sha256": "ac33783b27e9c4ed39c133416c5b5cc0a6870c3ce19e315db0a72e3a87f49557"
+  },
+  "registry/minimatch.json": {
+    "url": "https://registry.npmjs.org/minimatch",
+    "format": "npm-metadata",
+    "versions": [
+      "3.1.2",
+      "9.0.3"
+    ],
+    "distTags": {
+      "latest": "9.0.3"
+    },
+    "sha256": "25f23ce003e9a48fed24b0047c3cc6d034d0e56d0da10bc8e499e4aa47728042"
+  },
+  "audit/brace-expansion-bulk.json": {
+    "url": "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
+    "format": "npm-audit",
+    "requestBody": {
+      "brace-expansion": [
+        "1.1.11",
+        "2.0.1"
+      ]
+    },
+    "advisoryIds": [
+      1105443,
+      1105444,
+      1115540,
+      1115541,
+      1123896,
+      1123897,
+      1130588,
+      1130589,
+      1130736,
+      1130737
+    ],
+    "sha256": "558aeb54aead164bd4a831ea1920e5d4637854372f42840a1f3a972d1719bd6f"
+  }
+}

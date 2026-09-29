@@ -1,0 +1,7 @@
+node_modules/
+target/
+coverage/
+*.tsbuildinfo
+*.tgz
+/src/test/resources/real-world/*
+!/src/test/resources/real-world/provenance.json

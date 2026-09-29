@@ -102,6 +102,8 @@ Integration tests cover root projects and workspaces, multiple semver branches, 
 
 Separate registry tests verify direct bulk audits on Yarn 2/3/4, including both semver branches in a workspace, while metadata and tarball requests stay on the package registry. Fallback tests simulate a native HTTP 400 and check both audits against the original and repaired lockfiles. Native CLI smokes exercise the flag on the runtime Node/OS matrix.
 
+Candidate audits reproduce vulnerabilities that are absent from the original installed-version report. Tests cover replanning under both policies, deduplicating candidates across ranges, retaining accepted branches, exhausted candidates, changed advisory ranges, cancellation, and registry failures before any project writes. Native Yarn 2/3/4 tests verify that only the final accepted candidates reach the single install. Catalog tests exercise default and named catalogs both alone and mixed with ordinary ranges on Yarn 4.13, 4.14, and 4.18, preserving manifest and configuration bytes and checking the subsequent immutable install.
+
 For each successful fix, checks verify:
 
 - Exactly one install during the fix, followed by another audit.

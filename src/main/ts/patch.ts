@@ -3,13 +3,14 @@ import { object } from './audit.js';
 import { descriptors, npmDescriptor, parseLockfile, type Lockfile } from './lockfile.js';
 import type { Change } from './plan.js';
 
-function requestedDescriptors(lock: Lockfile): Set<string> {
+function requestedDescriptors(lock: Lockfile, catalogs: Record<string, string>): Set<string> {
   // Read declarations in the newly generated records, including workspace manifests.
   // Old ranges may disappear, or new exact pins may appear, when a parent is upgraded.
   const dependencies = Object.values(lock).flatMap(entry => object(entry.dependencies) ? Object.entries(entry.dependencies) : []);
   return new Set(dependencies.map(([name, range]) => {
     if (typeof range !== 'string') throw new Error(`Unsupported dependency declaration for ${name}`);
-    return `${name}@${range.includes(':') ? range : `npm:${range}`}`;
+    const descriptor = `${name}@${range.includes(':') ? range : `npm:${range}`}`;
+    return catalogs[descriptor] ?? descriptor;
   }));
 }
 
@@ -74,10 +75,10 @@ function compareBlocks(a: LockBlock, b: LockBlock): number {
 }
 
 /** Restore request headers; every package record below them remains Yarn's output. */
-export function restoreDescriptorHeaders(text: string, changes: Change[]): string {
+export function restoreDescriptorHeaders(text: string, changes: Change[], catalogs: Record<string, string> = {}): string {
   if (!changes.length) return text;
   const lock = parseLockfile(text);
-  const requested = requestedDescriptors(lock);
+  const requested = requestedDescriptors(lock, catalogs);
   const replacements = descriptorReplacements(lock, changes, requested);
   const newline = text.includes('\r\n') ? '\r\n' : '\n';
   const { prefix, blocks } = lockBlocks(text, lock);

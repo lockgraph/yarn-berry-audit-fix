@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, writeFile, rm, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -12,6 +12,9 @@ import { managers } from './pm.js';
 import { prepareProject } from './project.js';
 
 const require = createRequire(import.meta.url);
+const networkFetch = globalThis.fetch;
+beforeEach(() => vi.stubGlobal('fetch', (url: string, options: RequestInit) =>
+  networkFetch(url.replace('https://registry.npmjs.org', registry.url), options)));
 afterEach(() => vi.unstubAllGlobals());
 let registry: Awaited<ReturnType<typeof startRegistry>>;
 const directories: string[] = [];
@@ -137,7 +140,7 @@ describe.each(managers)('Yarn $version / lockfile v$schema', ({ alias: yarn, ver
       expect(result.warnings).toEqual([]);
       expect(calls.some(args => args[1] === 'audit')).toBe(false);
       const endpoint = '/-/npm/v1/security/advisories/bulk';
-      expect(audit.requests).toEqual([endpoint, endpoint]);
+      expect(audit.requests).toEqual([endpoint, endpoint, endpoint]);
       const packageRequests = registry.requests.slice(offset);
       expect(packageRequests).toContain('/brace-expansion');
       expect(packageRequests.some(path => path.endsWith('.tgz'))).toBe(true);
@@ -172,7 +175,7 @@ it.each(['pm-yarn-2', 'pm-yarn-berry-v6', 'pm-yarn-berry-v10'])('falls back afte
     expect(result.remaining).toEqual([]);
     expect(result.warnings).toEqual([expect.stringContaining('using bulk audit')]);
     expect(broken.requests.filter(path => path.startsWith('/-/npm/v1/security/'))).toHaveLength(1);
-    expect(payloads).toHaveLength(2);
+    expect(payloads).toHaveLength(3);
     expect(payloads[0]).toMatchObject({ 'brace-expansion': ['1.1.11', '2.0.1'] });
     expect(payloads[1]).toMatchObject({ 'brace-expansion': ['1.1.18', '2.1.4'] });
     expect(await Promise.all(paths.map(path => readFile(join(cwd, path))))).toEqual(original);
@@ -261,10 +264,10 @@ it.each(['install', 'audit'])('restores original files when the %s fails', async
     }
     return runner(args, options);
   };
-  const fetchFailure = vi.fn().mockRejectedValue(new Error('Bulk registry unavailable'));
+  const fetchFailure = vi.fn().mockResolvedValueOnce(new Response('{}')).mockRejectedValue(new Error('Bulk registry unavailable'));
   vi.stubGlobal('fetch', fetchFailure);
   await expect(fixAudit({ cwd, runner: failing })).rejects.toThrow(failedStage === 'install' ? 'Temporary resolutions install failed' : 'Yarn audit and bulk fallback failed');
-  expect(fetchFailure).toHaveBeenCalledTimes(failedStage === 'install' ? 0 : 1);
+  expect(fetchFailure).toHaveBeenCalledTimes(failedStage === 'install' ? 1 : 2);
   const after = await Promise.all(paths.map(path => readFile(join(cwd, path)).catch(() => undefined)));
   expect(after).toEqual(before);
   expect((await stat(join(cwd, 'package.json'))).ino).toBe(originalStat.ino);
@@ -298,4 +301,69 @@ it('rolls back if the final audit reports the selected version as vulnerable', a
   await expect(fixAudit({ cwd, runner: newAdvisory })).rejects.toThrow('Fix did not survive manifest restoration');
   expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(originalLock);
   expect(await readFile(join(cwd, 'package.json'))).toEqual(originalManifest);
+});
+
+it.each(['pm-yarn-berry-v8', 'pm-yarn-berry-v9', 'pm-yarn-berry-v10'].flatMap(yarn =>
+  [false, true].map(ordinary => ({ yarn, ordinary }))))('repairs default and named catalogs with $yarn (ordinary ranges=$ordinary)', async ({ yarn, ordinary }) => {
+  const { cwd, runner, run } = await project('masker', yarn, true);
+  const manifests = ['package.json', 'packages/child/package.json'];
+  for (const [index, file] of manifests.entries()) {
+    const path = join(cwd, file);
+    const manifest = JSON.parse(await readFile(path, 'utf8'));
+    if (!ordinary) delete manifest.dependencies.minimatch;
+    manifest.dependencies['brace-expansion'] = index ? 'catalog:modern' : 'catalog:';
+    await writeFile(path, JSON.stringify(manifest));
+  }
+  const config = join(cwd, '.yarnrc.yml');
+  await writeFile(config, await readFile(config, 'utf8') + '\ncatalog:\n  brace-expansion: ^1.1.7\ncatalogs:\n  modern:\n    brace-expansion: ^2.0.1\n');
+  requireSuccess(await run(['install']), 'Prepare catalog dependencies');
+  const paths = [...manifests, '.yarnrc.yml'];
+  const original = await Promise.all(paths.map(path => readFile(join(cwd, path))));
+  const report = await fixAudit({ cwd, runner });
+  expect(report.changes.map(change => change.to)).toEqual(['1.1.18', '2.1.4']);
+  expect(report.resolutions['brace-expansion@catalog:']).toBe('npm:1.1.18');
+  expect(report.resolutions['brace-expansion@catalog:modern']).toBe('npm:2.1.4');
+  expect(report.remaining).toEqual([]);
+  expect(await Promise.all(paths.map(path => readFile(join(cwd, path))))).toEqual(original);
+  const rootRequire = createRequire(join(cwd, 'package.json'));
+  const childRequire = createRequire(join(cwd, 'packages/child/package.json'));
+  expect(rootRequire('brace-expansion/package.json').version).toBe('1.1.18');
+  expect(childRequire('brace-expansion/package.json').version).toBe('2.1.4');
+  const fixed = await readFile(join(cwd, 'yarn.lock'));
+  requireSuccess(await run(['install', '--immutable', '--check-resolutions']), 'Immutable catalog install');
+  expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(fixed);
+  expect((await fixAudit({ cwd, runner })).changed).toBe(false);
+});
+
+it.each(['pm-yarn-2', 'pm-yarn-berry-v6', 'pm-yarn-berry-v10'])('rejects a newly vulnerable candidate before the only install with %s', async yarn => {
+  const { cwd, runner, run } = await project('masker', yarn);
+  const originalLock = await readFile(join(cwd, 'yarn.lock'));
+  const originalManifest = await readFile(join(cwd, 'package.json'));
+  let audits = 0;
+  let installs = 0;
+  const observed: Runner = async (args, options) => {
+    if (args[1] === 'audit' && ++audits === 1) {
+      return { code: 1, stdout: JSON.stringify({ 'brace-expansion': [{ id: 1, vulnerable_versions: '<1.1.12' }] }), stderr: '' };
+    }
+    if (args[0] === 'install') {
+      installs++;
+      const manifest = JSON.parse(await readFile(join(cwd, 'package.json'), 'utf8'));
+      expect(Object.values(manifest.resolutions)).toEqual(['npm:1.1.18', 'npm:1.1.18']);
+    }
+    return runner(args, options);
+  };
+  const payloads: unknown[] = [];
+  vi.stubGlobal('fetch', async (url: string, options: RequestInit) => {
+    expect(url).toBe('https://registry.npmjs.org/-/npm/v1/security/advisories/bulk');
+    expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(originalLock);
+    expect(await readFile(join(cwd, 'package.json'))).toEqual(originalManifest);
+    payloads.push(JSON.parse(String(options.body)));
+    return networkFetch(`${registry.url}/-/npm/v1/security/advisories/bulk`, options);
+  });
+  const report = await fixAudit({ cwd, runner: observed });
+  expect(payloads).toEqual([{ 'brace-expansion': ['1.1.12'] }, { 'brace-expansion': ['1.1.18'] }]);
+  expect(installs).toBe(1);
+  expect(report.changes.map(change => change.to)).toEqual(['1.1.18']);
+  expect(report.remaining).toEqual([]);
+  requireSuccess(await run(['install', '--immutable']), 'Immutable install after candidate replanning');
 });

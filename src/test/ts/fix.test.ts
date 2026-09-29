@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +7,7 @@ import { fixAudit } from '../../main/ts/index.js';
 import type { Runner } from '../../main/ts/yarn.js';
 
 const directories: string[] = [];
+beforeEach(() => vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}'))));
 const originalManifest = '{"name":"fixture","dependencies":{"foo":"^1"}}\n';
 const originalLock = stringifySyml({
   __metadata: { version: '8' },
@@ -38,6 +39,7 @@ async function expectRestored(cwd: string) {
 }
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
   await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true })));
 });
 
@@ -117,5 +119,43 @@ it('reports both the install failure and rollback errors while restoring other f
     message: 'Fix failed and rollback was incomplete',
     errors: [{ message: expect.stringContaining('Install failed') }, { errors: [{ code: 'EISDIR' }] }],
   });
+  await expectRestored(cwd);
+});
+
+it.each([false, true])('leaves every file untouched when candidate audit fails (dryRun=%s)', async dryRun => {
+  const { cwd, runner } = await project();
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Candidate audit unavailable')));
+  await expect(fixAudit({ cwd, runner, dryRun })).rejects.toThrow('Candidate audit unavailable');
+  expect(runner.mock.calls.some(([args]) => args[0] === 'install' || args[0] === 'config')).toBe(false);
+  await expectRestored(cwd);
+});
+
+it('honors cancellation during candidate auditing before creating backups or running an install', async () => {
+  const { cwd, runner } = await project();
+  const controller = new AbortController();
+  const error = new Error('Cancelled candidate audit');
+  vi.stubGlobal('fetch', (_url: string, options: RequestInit) => new Promise((_resolve, reject) => {
+    options.signal!.addEventListener('abort', () => reject(options.signal!.reason), { once: true });
+    controller.abort(error);
+  }));
+  await expect(fixAudit({ cwd, runner, signal: controller.signal })).rejects.toBe(error);
+  expect(runner.mock.calls.some(([args]) => args[0] === 'install')).toBe(false);
+  await expectRestored(cwd);
+});
+
+it('returns an audited dry-run plan after discovering a vulnerability in the first candidate', async () => {
+  const { cwd, runner } = await project();
+  const delegate = runner.getMockImplementation()!;
+  runner.mockImplementation((args, options) => args[1] === 'info'
+    ? Promise.resolve(success({ name: 'foo', versions: ['1.0.0', '1.2.3', '1.2.4'] })) : delegate(args, options));
+  const fetch = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ foo: [{ id: 2, vulnerable_versions: '1.2.3' }] })))
+    .mockResolvedValueOnce(new Response('{}'));
+  vi.stubGlobal('fetch', fetch);
+  const result = await fixAudit({ cwd, runner, dryRun: true });
+  expect(result.changes.map(change => change.to)).toEqual(['1.2.4']);
+  expect(result.before).toHaveLength(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(runner.mock.calls.some(([args]) => args[0] === 'install')).toBe(false);
   await expectRestored(cwd);
 });

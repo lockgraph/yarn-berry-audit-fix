@@ -3,10 +3,12 @@ import { resolve, join, relative, isAbsolute, sep } from 'node:path';
 import semver from 'semver';
 import { isVulnerable, jsonRecords, object, type Advisory } from './audit.js';
 import { createAuditor } from './auditor.js';
+import { addCatalogResolutions, catalogDescriptors } from './catalog.js';
 import { descriptors, npmDescriptor, parseLockfile, type Lockfile } from './lockfile.js';
 import { createPlan, parsePolicy, type Change, type Plan, type UpdatePolicy } from './plan.js';
 import { withManifestBackups } from './manifest.js';
 import { restoreDescriptorHeaders } from './patch.js';
+import { verifiedPlan } from './planning.js';
 import { createRunner, parseAuditRegistry, publishedVersions, requireSuccess, yarnCommands, type Runner, type InstallMode } from './yarn.js';
 
 export { parseAudit, type Advisory } from './audit.js';
@@ -116,7 +118,11 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
     options.onProgress?.(`Looking up published versions of ${name}`);
     versions[name] = publishedVersions(requireSuccess(await run(['npm', 'info', name, '--fields', 'versions', '--json']), 'Package metadata'), name);
   }
-  const plan = createPlan(lock, before, versions, existing as Record<string, string>, policy);
+  const { plan, advisories } = await verifiedPlan(before,
+    findings => createPlan(lock, findings, versions, existing as Record<string, string>, policy),
+    packages => auditor.candidates(packages), options.onProgress);
+  const catalogs = await catalogDescriptors(lock, run, new Set(plan.changes.map(change => change.name)));
+  addCatalogResolutions(plan, catalogs);
   const result: FixResult = { ...plan, policy, yarnVersion, changed: false, dryRun: !!options.dryRun, before, remaining: before, warnings: auditor.warnings };
   if (options.dryRun || !plan.changes.length) return result;
 
@@ -146,11 +152,11 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
       await restore(preserved);
       options.onProgress?.('Restoring original dependency request headers in the lockfile');
       const generatedLock = await readFile(lockPath, 'utf8');
-      await writeFile(lockPath, restoreDescriptorHeaders(generatedLock, plan.changes));
+      await writeFile(lockPath, restoreDescriptorHeaders(generatedLock, plan.changes, catalogs));
       options.onProgress?.('Auditing the restored project');
       const finalLock = parseLockfile(await readFile(lockPath, 'utf8'));
       result.remaining = await auditor.read(finalLock);
-      result.changes = verifiedChanges(finalLock, plan.changes, [...before, ...result.remaining]);
+      result.changes = verifiedChanges(finalLock, plan.changes, [...advisories, ...result.remaining]);
       result.changed = !(await readFile(lockPath)).equals(originalLock);
       if (options.mode === 'update-lockfile') await restore(new Map([[stateFile, originalState]]));
       return result;

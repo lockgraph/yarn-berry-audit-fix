@@ -37,10 +37,12 @@
     "build:smoke": "tsc -p tsconfig.smoke.json && node --experimental-strip-types src/test/ts/build-smoke.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:quick": "vitest run --exclude \"**/*integration.test.ts\"",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run integration",
     "test:smoke": "node target/smoke/test/ts/smoke.js",
     "check": "npm run build:test-fixtures && npm run typecheck && npm run test:coverage && npm run build",
+    "check:quick": "npm run build:test-fixtures && npm run typecheck && npm run test:quick && npm run build && npm run build:smoke && npm run test:smoke",
     "start": "node target/main/cli.js",
     "release": "npx --yes zx-semrel@1.25.1"
   },

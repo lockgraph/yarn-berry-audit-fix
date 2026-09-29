@@ -1,14 +1,18 @@
 # npm trusted publishing pins this filename to ci.yml.
 name: CI
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
 
 permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  # A new PR run can replace an old one; publishing must finish uninterrupted.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Replace superseded checks while allowing release pushes to finish.
+  cancel-in-progress: ${{ github.event_name != 'push' || github.ref != 'refs/heads/master' }}
 
 env:
   npm_config_audit: false
@@ -16,7 +20,7 @@ env:
 
 jobs:
   test:
-    name: Full suite (Linux, Node 24)
+    name: Build and test (Linux, Node 24)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -30,22 +34,34 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - run: npm run check
+      - name: Quick branch checks
+        if: github.event_name == 'push' && github.ref != 'refs/heads/master'
+        run: npm run check:quick
+      - name: Full checks and coverage
+        if: github.event_name != 'push' || github.ref == 'refs/heads/master'
+        run: npm run check
       - name: Upload coverage report
-        if: always()
+        if: always() && (github.event_name != 'push' || github.ref == 'refs/heads/master')
         uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: target/coverage
           retention-days: 7
-      - run: npm run build:smoke
+      - name: Prepare runtime smokes
+        if: github.event_name != 'push' || github.ref == 'refs/heads/master'
+        run: npm run build:smoke
+      - name: Check release build with native Yarn
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: npm run test:smoke
       - uses: actions/upload-artifact@v7
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         with:
           name: build
           path: target/main
           retention-days: 1
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
+        if: github.event_name != 'push'
         with:
           name: runtime-smoke
           path: |
@@ -58,6 +74,7 @@ jobs:
   smoke:
     name: Smoke (${{ matrix.os }}, Node ${{ matrix.node }})
     needs: test
+    if: github.event_name != 'push'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     permissions:
@@ -89,7 +106,7 @@ jobs:
 
   release:
     name: Release
-    needs: [test, smoke]
+    needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     environment: release

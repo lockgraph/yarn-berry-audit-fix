@@ -33,10 +33,6 @@ By default, dependencies are installed. After a lockfile-only run, use `yarn ins
 
 Exit codes: `0` for a clean audit or dry run, `1` for remaining advisories, `2` for an execution error, `130` for interruption.
 
-## How it works
-
-The tool runs `yarn npm audit`, selects compatible fixes using the chosen policy, and adds temporary `resolutions`. Yarn performs one install. The original manifests are then restored, lockfile headers are patched back to their original ranges, and the audit runs again. Yarn's generated package records are preserved.
-
 ## API
 
 ```ts
@@ -44,6 +40,10 @@ import { fixAudit } from 'yarn-berry-audit-fix';
 
 const report = await fixAudit({ cwd: '/path/to/project', dryRun: true, policy: 'highest' });
 ```
+
+## How it works
+
+The tool runs `yarn npm audit`, selects compatible fixes using the chosen policy, and adds temporary `resolutions`. Yarn performs one install. The original manifests are then restored, lockfile headers are patched back to their original ranges, and the audit runs again. Yarn's generated package records are preserved.
 
 ## Known limitations
 

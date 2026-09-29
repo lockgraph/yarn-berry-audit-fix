@@ -9,11 +9,12 @@ npm ci
 npm run check
 ```
 
-`check` prepares fixtures, checks types, runs Vitest, and builds the package. To run individual steps:
+`check` prepares fixtures, checks types, runs Vitest with coverage, and builds the package. To run individual steps:
 
 ```sh
 npm run build:test-fixtures
 npm test
+npm run test:coverage
 npm run test:integration
 npm run typecheck
 npm run build
@@ -88,6 +89,8 @@ Aliases such as `pm-yarn-berry-v5` refer to the lockfile schema, not the Yarn CL
 The runtime accepts stable Berry releases from 2.4 through 4.x, excluding 4.0.0 because of its audit JSON bug. The accepted range is broader than this pinned test matrix. Yarn 2 must reject lockfile-only mode before auditing or mutating files.
 
 ## Checks and coverage
+
+`test:coverage` measures `src/main/**/*.ts` with V8 and writes LCOV and HTML reports to `target/coverage`. CI saves the report as an artifact. On pushes to `master`, the release job uploads `target/coverage/lcov.info` to Qlty with the repository's `QLTY_COVERAGE_TOKEN` before publishing the package.
 
 Integration tests cover root projects and workspaces, multiple semver branches, `node_modules` and PnP installations, both install modes, existing installed trees, idempotence, incompatible pins, and rollback on failure. They also capture Yarn 2/3 audit omissions when multiple versions of a package coexist.
 

@@ -23,6 +23,7 @@ yarn dlx yarn-berry-audit-fix --dry-run
 yarn dlx yarn-berry-audit-fix --policy=highest
 yarn dlx yarn-berry-audit-fix --mode=update-lockfile
 yarn dlx yarn-berry-audit-fix --audit-registry=https://registry.npmjs.org
+yarn dlx yarn-berry-audit-fix --ignore-unfixed
 ```
 
 | Option | Effect |
@@ -33,13 +34,18 @@ yarn dlx yarn-berry-audit-fix --audit-registry=https://registry.npmjs.org
 | `--audit-registry URL` | Send project and candidate audits directly to this registry using the bulk API. Works with Yarn 2/3/4; metadata and downloads keep their existing registry settings. |
 | `--cwd DIR` | Use another project root. |
 | `--json` | Print the report as JSON, including planned/applied changes, skipped requests, remaining advisories, and warnings. |
+| `--ignore-unfixed` | Exit successfully when advisories remain. Keeps the findings visible; execution errors and interruption still fail. |
 | `--yarn-path FILE` | Run a specific Yarn JavaScript bundle instead of `yarn` from PATH. |
+| `--help`, `-h` | Show command help without accessing a project. |
+| `--version`, `-v` | Print the installed tool version without accessing a project. |
 
 By default, dependencies are installed. After a lockfile-only run, use `yarn install` when you want to update the installed tree.
 
 `--audit-registry` takes a base URL; requests go to `/-/npm/v1/security/advisories/bulk`. Without it, project audits use Yarn first and fall back to the public npm bulk API if Yarn fails. Proposed versions are always checked through bulk before installation, including during dry runs, using the override or public npm registry. Direct project audits include every locked npm version, including aliases and patched npm packages. Direct requests do not read Yarn registry settings or credentials.
 
-Exit codes: `0` for a clean audit or dry run, `1` for remaining advisories, `2` for an execution error, `130` for interruption.
+Exit codes: `0` for a clean audit, dry run, or `--ignore-unfixed`; `1` for remaining advisories; `2` for an execution error; `130` for interruption. `--ignore-unfixed` only suppresses code `1`.
+
+Each bump lists the advisories it resolves, with CVE IDs and CVSS scores when available. The CLI supplements missing metadata from GitHub's public Advisory API; a custom `--audit-registry` uses only its supplied metadata. Unassigned CVEs fall back to GHSA IDs, and unknown scores are shown as unavailable. Failed supplementary lookups produce warnings without failing the repair.
 
 ## API
 
@@ -52,6 +58,9 @@ const report = await fixAudit({
   policy: 'highest',
   auditRegistry: 'https://registry.npmjs.org', // Optional; bypasses native Yarn audit.
 });
+
+// Each change includes its resolved advisories and metadata supplied by the audit source.
+console.log(report.changes[0]?.advisories);
 ```
 
 ## How it works

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createRunner, requireSuccess } from '../../main/ts/yarn.js';
+import { lookupVersions } from '../../main/ts/metadata.js';
 import type { FixResult } from '../../main/ts/index.js';
 import { prepareProject } from './project.js';
 import { startRegistry } from './registry.js';
@@ -10,6 +11,9 @@ import { startRegistry } from './registry.js';
 const cli = createRunner([process.execPath, resolve('target/main/cli.js')]);
 const runCLI = (args: string[]) => cli(args, { cwd: process.cwd(), env: { ...process.env, YARN_IGNORE_PATH: '1' } });
 assert.match(requireSuccess(await runCLI(['--help']), 'CLI help'), /--policy=lowest\|highest/);
+assert.match(requireSuccess(await runCLI(['-h']), 'CLI short help'), /--ignore-unfixed/);
+const packageManifest = JSON.parse(await readFile('package.json', 'utf8'));
+for (const flag of ['--version', '-v']) assert.equal(requireSuccess(await runCLI([flag, '--cwd', 'missing-project']), 'CLI version').trim(), packageManifest.version);
 for (const flag of ['--policy=unknown', '--mode=unknown', '--audit-registry=not-a-url']) assert.equal((await runCLI([flag])).code, 2);
 
 const registry = await startRegistry();
@@ -27,12 +31,16 @@ try {
       const project = await prepareProject(cwd, registry.url, yarn, { repo: workspace ? 'masker' : 'packasso', workspace });
       const files = ['package.json', 'yarn.lock', '.yarnrc.yml', ...(workspace ? ['packages/child/package.json'] : [])];
       const original = await Promise.all(files.map(file => readFile(join(cwd, file))));
+      const metadata = await lookupVersions(['brace-expansion', 'semver'], project.run);
+      assert.ok(metadata['brace-expansion']!.includes('1.1.18'));
+      assert.ok(metadata.semver!.includes('7.8.5'));
       const args = ['--cwd', cwd, '--yarn-path', yarn, '--json', '--policy=highest',
         ...(mode ? [`--mode=${mode}`] : []), `--audit-registry=${registry.url}`];
       const dry: FixResult = JSON.parse(requireSuccess(await runCLI([...args, '--dry-run']), 'CLI dry run'));
       assert.equal(dry.changed, false);
       assert.equal(dry.policy, 'highest');
       assert.equal(dry.changes.length, workspace ? 2 : 1);
+      assert.ok(dry.changes.every(change => change.advisories.some(advisory => advisory.ghsaId && advisory.cvss)));
       assert.deepEqual(await Promise.all(files.map(file => readFile(join(cwd, file)))), original);
       if (alias === 'pm-yarn-2') {
         assert.equal((await runCLI([...args, '--mode=update-lockfile'])).code, 2);
@@ -56,6 +64,18 @@ try {
       const installed = requireSuccess(await project.run(['node', '-e', 'const r=require("module").createRequire(require.resolve("minimatch")); console.log(r("brace-expansion/package.json").version)']), 'Installed dependency').trim();
       assert.equal(installed, '1.1.18');
       assert.equal((JSON.parse(requireSuccess(await runCLI(args), 'Repeated repair')) as FixResult).changed, false);
+      // Existing resolutions prevent repair; the flag changes only the exit status.
+      const pinned = JSON.parse(original[0]!.toString());
+      pinned.resolutions = { 'brace-expansion': 'npm:1.1.11' };
+      await writeFile(join(cwd, 'package.json'), JSON.stringify(pinned));
+      requireSuccess(await project.run(['install']), 'Prepare unfixable CLI report');
+      const unfixable = await runCLI(args);
+      assert.equal(unfixable.code, 1);
+      assert.ok((JSON.parse(unfixable.stdout) as FixResult).remaining.length);
+      const ignored = await runCLI([...args, '--ignore-unfixed']);
+      assert.equal(ignored.code, 0);
+      assert.deepEqual(JSON.parse(ignored.stdout), JSON.parse(unfixable.stdout));
+      assert.equal((await runCLI([...args, '--ignore-unfixed', '--cwd', join(cwd, 'missing-project')])).code, 2);
       console.log(`Passed: ${alias}, ${mode ?? 'install'}, workspaces=${workspace}, Node ${process.version}, ${process.platform}`);
     } finally { await rm(cwd, { recursive: true, force: true }); }
   }

@@ -7,13 +7,16 @@ import { addCatalogResolutions, catalogDescriptors } from './catalog.js';
 import { descriptors, npmDescriptor, parseLockfile, type Lockfile } from './lockfile.js';
 import { createPlan, parsePolicy, type Change, type Plan, type UpdatePolicy } from './plan.js';
 import { withManifestBackups } from './manifest.js';
+import { lookupVersions } from './metadata.js';
 import { restoreDescriptorHeaders } from './patch.js';
 import { verifiedPlan } from './planning.js';
-import { createRunner, parseAuditRegistry, publishedVersions, requireSuccess, yarnCommands, type Runner, type InstallMode } from './yarn.js';
+import { describeChanges, type ReportedChange } from './report.js';
+import { createRunner, parseAuditRegistry, requireSuccess, yarnCommands, type Runner, type InstallMode } from './yarn.js';
 
 export { parseAudit, type Advisory } from './audit.js';
 export { createPlan, type Plan, type Change, type Skipped, type UpdatePolicy } from './plan.js';
 export { createRunner, type Runner, type InstallMode } from './yarn.js';
+export type { ReportedChange } from './report.js';
 
 export interface FixOptions {
   cwd?: string;
@@ -26,6 +29,7 @@ export interface FixOptions {
   onProgress?: (message: string) => void;
 }
 export interface FixResult extends Plan {
+  changes: ReportedChange[];
   policy: UpdatePolicy;
   yarnVersion: string;
   changed: boolean;
@@ -113,17 +117,13 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
   });
   options.onProgress?.(`Auditing with Yarn ${yarnVersion}`);
   const before = await auditor.read(lock);
-  const versions: Record<string, string[]> = {};
-  for (const name of new Set(before.map(advisory => advisory.name))) {
-    options.onProgress?.(`Looking up published versions of ${name}`);
-    versions[name] = publishedVersions(requireSuccess(await run(['npm', 'info', name, '--fields', 'versions', '--json']), 'Package metadata'), name);
-  }
+  const versions = await lookupVersions(before.map(advisory => advisory.name), run, options.onProgress);
   const { plan, advisories } = await verifiedPlan(before,
     findings => createPlan(lock, findings, versions, existing as Record<string, string>, policy),
     packages => auditor.candidates(packages), options.onProgress);
   const catalogs = await catalogDescriptors(lock, run, new Set(plan.changes.map(change => change.name)));
   addCatalogResolutions(plan, catalogs);
-  const result: FixResult = { ...plan, policy, yarnVersion, changed: false, dryRun: !!options.dryRun, before, remaining: before, warnings: auditor.warnings };
+  const result: FixResult = { ...plan, changes: describeChanges(plan.changes, advisories), policy, yarnVersion, changed: false, dryRun: !!options.dryRun, before, remaining: before, warnings: auditor.warnings };
   if (options.dryRun || !plan.changes.length) return result;
 
   const guardPath = join(cwd, '.yarn-berry-audit-fix.lock');
@@ -156,7 +156,8 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
       options.onProgress?.('Auditing the restored project');
       const finalLock = parseLockfile(await readFile(lockPath, 'utf8'));
       result.remaining = await auditor.read(finalLock);
-      result.changes = verifiedChanges(finalLock, plan.changes, [...advisories, ...result.remaining]);
+      const findings = [...advisories, ...result.remaining];
+      result.changes = describeChanges(verifiedChanges(finalLock, plan.changes, findings), findings);
       result.changed = !(await readFile(lockPath)).equals(originalLock);
       if (options.mode === 'update-lockfile') await restore(new Map([[stateFile, originalState]]));
       return result;

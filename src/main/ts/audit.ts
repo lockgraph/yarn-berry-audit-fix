@@ -1,6 +1,7 @@
 import semver from 'semver';
+import { advisoryDetails, type AdvisoryDetails } from './advisory-details.js';
 
-export interface Advisory {
+export interface Advisory extends AdvisoryDetails {
   id: string;
   name: string;
   vulnerable: string;
@@ -23,6 +24,7 @@ export function jsonRecords(text: string): unknown[] {
 function parseAdvisory(value: unknown, name?: string): Advisory {
   if (!object(value)) throw new Error('Invalid advisory');
   const advisory: Advisory = {
+    ...advisoryDetails(value),
     id: String(value.id ?? value.source ?? ''),
     name: String(value.module_name ?? value.name ?? name ?? ''),
     vulnerable: String(value.vulnerable_versions ?? ''),
@@ -45,7 +47,7 @@ function recordAdvisories(record: unknown): Advisory[] {
   if (object(record.advisories)) return Object.values(record.advisories).map(value => parseAdvisory(value));
   if (typeof record.value === 'string' && object(record.children)) {
     const child = record.children;
-    return [parseAdvisory({ id: child.ID, module_name: record.value, vulnerable_versions: child['Vulnerable Versions'], title: child.Issue, url: child.URL })];
+    return [parseAdvisory({ id: child.ID, module_name: record.value, vulnerable_versions: child['Vulnerable Versions'], title: child.Issue, url: child.URL, severity: child.Severity })];
   }
   if (record.type === 'auditAdvisory' && object(record.data)) return [parseAdvisory(record.data.advisory)];
   if (Object.values(record).every(Array.isArray)) {

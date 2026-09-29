@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import semver from 'semver';
-import { jsonRecords, object, parseAudit, type Advisory } from './audit.js';
+import { parseAudit, type Advisory } from './audit.js';
 
 export interface CommandResult { code: number; stdout: string; stderr: string }
 export type Runner = (args: string[], options: { cwd: string; env: NodeJS.ProcessEnv; signal?: AbortSignal }) => Promise<CommandResult>;
@@ -78,13 +78,4 @@ export function auditResult(result: CommandResult): Advisory[] {
   }
   if (result.code !== 0 && !advisories.length) requireSuccess(result, 'Audit');
   return advisories;
-}
-
-export function publishedVersions(stdout: string, name: string): string[] {
-  const records = jsonRecords(stdout);
-  const info = records.find(value => object(value) && value.name === name);
-  if (!object(info) || !Array.isArray(info.versions) || !info.versions.every(value => typeof value === 'string')) {
-    throw new Error(`No published versions returned for ${name}`);
-  }
-  return info.versions as string[];
 }

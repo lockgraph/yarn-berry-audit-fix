@@ -9,7 +9,7 @@ const originalExitCode = process.exitCode;
 const signals = ['SIGINT', 'SIGTERM'] as const;
 let listeners: NodeJS.SignalsListener[][];
 const advisory = { id: '1', name: 'foo', vulnerable: '<1.2.3' };
-const change = { name: 'foo', descriptor: 'foo@npm:^1', from: '1.0.0', to: '1.2.3' };
+const change = { name: 'foo', descriptor: 'foo@npm:^1', from: '1.0.0', to: '1.2.3', advisories: [] };
 const report = (overrides: Partial<FixResult> = {}): FixResult => ({
   changes: [], skipped: [], resolutions: {}, policy: 'lowest', yarnVersion: '4.18.1',
   changed: false, dryRun: false, before: [], remaining: [], warnings: [], ...overrides,
@@ -111,4 +111,63 @@ it.each(signals)('aborts the fixer on %s and removes its signal handlers', async
   await run();
   expect(console.error).toHaveBeenCalledExactlyOnceWith('Interrupted');
   expect(process.exitCode).toBe(130);
+});
+
+it.each(['--version', '-v'])('prints the installed version with %s without accessing the target project', async flag => {
+  const { readFile } = await import('node:fs/promises');
+  const { version } = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8'));
+  await run(flag, '--cwd', '/missing-project');
+  expect(console.log).toHaveBeenCalledExactlyOnceWith(version);
+  expect(fixAudit).not.toHaveBeenCalled();
+  expect(process.exitCode).toBeUndefined();
+});
+
+it.each([false, true])('keeps remaining advisories visible but exits successfully with --ignore-unfixed (json=%s)', async json => {
+  const result = report({ remaining: [advisory], skipped: [{ name: 'foo', descriptor: 'foo@npm:1.0.0', version: '1.0.0', reason: 'Exact pin' }] });
+  vi.mocked(fixAudit).mockResolvedValue(result);
+  await run('--ignore-unfixed', ...(json ? ['--json'] : []));
+  expect(console.log).toHaveBeenCalledWith(json ? JSON.stringify(result, null, 2) : '1 advisory record(s) remaining.');
+  expect(process.exitCode).toBe(0);
+});
+
+it('never suppresses execution failures or invalid options with --ignore-unfixed', async () => {
+  vi.mocked(fixAudit).mockRejectedValue(new Error('Install failed'));
+  await run('--ignore-unfixed');
+  expect(console.error).toHaveBeenCalledWith('Install failed');
+  expect(process.exitCode).toBe(2);
+});
+
+it('never suppresses interruption with --ignore-unfixed', async () => {
+  vi.mocked(fixAudit).mockImplementation(async options => {
+    process.emit('SIGINT');
+    throw options?.signal?.reason;
+  });
+  await run('--ignore-unfixed');
+  expect(process.exitCode).toBe(130);
+});
+
+it('prints CVEs and CVSS scores under their applied bump', async () => {
+  const affected = { ...advisory, cves: ['CVE-2025-5889'], cvss: { score: 3.1 } };
+  vi.mocked(fixAudit).mockResolvedValue(report({ changes: [{ ...change, advisories: [affected] }] }));
+  await run();
+  expect(console.log).toHaveBeenCalledWith('Fixed foo@npm:^1: 1.0.0 -> 1.2.3');
+  expect(console.log).toHaveBeenCalledWith('  CVE-2025-5889 (CVSS 3.1)');
+});
+
+it('does not contact GitHub when using a custom audit registry', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  vi.mocked(fixAudit).mockResolvedValue(report({ changes: [{ ...change, advisories: [{ ...advisory, ghsaId: 'GHSA-v6h2-p8h4-qcjw' }] }] }));
+  await run('--audit-registry=https://audit.example.org');
+  expect(fetch).not.toHaveBeenCalled();
+  expect(console.log).toHaveBeenCalledWith('  GHSA-v6h2-p8h4-qcjw (CVSS unavailable)');
+});
+
+it('includes supplementary CVE metadata in JSON while reporting display lookup failures as warnings', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('Unavailable', { status: 503 }));
+  vi.mocked(fixAudit).mockResolvedValue(report({ changes: [{ ...change, advisories: [{ ...advisory, ghsaId: 'GHSA-v6h2-p8h4-qcjw' }] }] }));
+  await run('--json');
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Some CVE/CVSS details could not be loaded'));
+  expect(JSON.parse(vi.mocked(console.log).mock.calls[0]![0]).changes[0].advisories[0].ghsaId).toBe('GHSA-v6h2-p8h4-qcjw');
+  expect(process.exitCode).toBe(0);
 });

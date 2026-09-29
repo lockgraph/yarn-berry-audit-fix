@@ -3,7 +3,7 @@ import { parseAudit } from '../../main/ts/audit.js';
 import { createPlan } from '../../main/ts/plan.js';
 import { fixAudit } from '../../main/ts/index.js';
 import { parseLockfile, type Lockfile } from '../../main/ts/lockfile.js';
-import { auditResult, parseAuditRegistry, publishedVersions, supportedYarn, yarnCommands } from '../../main/ts/yarn.js';
+import { auditResult, parseAuditRegistry, supportedYarn, yarnCommands } from '../../main/ts/yarn.js';
 
 const advisory = { id: '1', name: 'foo', vulnerable: '<1.2.3' };
 const entry = (version: string, name = 'foo') => ({ version, resolution: `${name}@npm:${version}`, checksum: 'original', dependencies: { child: 'npm:^1' } });
@@ -113,5 +113,4 @@ describe('lockfile input', () => {
 describe('compatibility and metadata', () => {
   it.each(['2.4.0', '2.4.3', '3.0.0', '3.5.1', '4.0.1', '4.2.2', '4.18.1'])('supports Yarn %s', version => { expect(supportedYarn(version)).toBeGreaterThanOrEqual(2); });
   it.each(['1.22.22', '2.3.4', '4.0.0', '4.0.0-rc.14', '5.0.0', 'garbage'])('rejects unsupported Yarn %s', version => { expect(() => supportedYarn(version)).toThrow('Unsupported'); });
-  it('rejects missing package metadata', () => { expect(() => publishedVersions('{}', 'foo')).toThrow('No published'); });
 });

@@ -159,3 +159,24 @@ it('returns an audited dry-run plan after discovering a vulnerability in the fir
   expect(runner.mock.calls.some(([args]) => args[0] === 'install')).toBe(false);
   await expectRestored(cwd);
 });
+
+it.each([0, 1])('rejects incomplete batched metadata before any project writes (exit code %s)', async code => {
+  const { cwd, runner } = await project();
+  const delegate = runner.getMockImplementation()!;
+  runner.mockImplementation((args, options) => {
+    if (args[1] === 'audit') return Promise.resolve(success({
+      foo: [{ id: 1, vulnerable_versions: '<1.2.3' }],
+      '@scope/bar': [{ id: 2, vulnerable_versions: '<1.2.3' }],
+    }));
+    if (args[1] === 'info') return Promise.resolve({ ...success({ name: 'foo', versions: ['1.0.0', '1.2.3'] }), code });
+    return delegate(args, options);
+  });
+  await expect(fixAudit({ cwd, runner })).rejects.toThrow(code ? 'Package metadata failed' : 'No published versions returned for @scope/bar');
+  const calls = runner.mock.calls.map(([args]) => args);
+  expect(calls.filter(args => args[1] === 'info')).toEqual([
+    ['npm', 'info', '--fields', 'name,versions', '--json', '--', 'foo', '@scope/bar'],
+  ]);
+  expect(calls.some(args => args[0] === 'install')).toBe(false);
+  expect(globalThis.fetch).not.toHaveBeenCalled();
+  await expectRestored(cwd);
+});

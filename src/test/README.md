@@ -98,9 +98,13 @@ Run `qlty smells --all` to check maintainability locally. The [Qlty configuratio
 
 CLI tests exercise argument parsing, output, exit codes, progress and signal handling with the fixer mocked at the API boundary; the native CLI smokes below verify the complete process. Failure-path tests exercise real filesystem rollback, invalid workspaces, concurrent edits and cancellation. Runner tests launch real child processes to check failures, signals and output limits.
 
+Reporting tests associate advisories with individual version changes, retain CVEs and CVSS scores across audit formats, and cover missing metadata and GHSA fallbacks. Supplementary GitHub lookups are mocked to test deduplication, bounded concurrency, rate limits, invalid responses, timeout, and cancellation. CLI smokes verify both help/version aliases and that `--ignore-unfixed` preserves the report while changing only the remaining-advisory exit code. They use the explicit local audit registry and make no GitHub requests.
+
 Integration tests cover root projects and workspaces, multiple semver branches, `node_modules` and PnP installations, both install modes, existing installed trees, idempotence, incompatible pins, and rollback on failure. They also capture Yarn 2/3 audit omissions when multiple versions of a package coexist.
 
 Separate registry tests verify direct bulk audits on Yarn 2/3/4, including both semver branches in a workspace, while metadata and tarball requests stay on the package registry. Fallback tests simulate a native HTTP 400 and check both audits against the original and repaired lockfiles. Native CLI smokes exercise the flag on the runtime Node/OS matrix.
+
+Metadata lookups deduplicate package names and send up to 64 names per `yarn npm info` invocation, retaining Yarn's registry configuration. Native tests cover batching and partial failures on every pinned CLI. Unit tests cover scoped names, unordered NDJSON, duplicate or missing records, batch boundaries, cancellation, and failures before project writes.
 
 Candidate audits reproduce vulnerabilities that are absent from the original installed-version report. Tests cover replanning under both policies, deduplicating candidates across ranges, retaining accepted branches, exhausted candidates, changed advisory ranges, cancellation, and registry failures before any project writes. Native Yarn 2/3/4 tests verify that only the final accepted candidates reach the single install. Catalog tests exercise default and named catalogs both alone and mixed with ordinary ranges on Yarn 4.13, 4.14, and 4.18, preserving manifest and configuration bytes and checking the subsequent immutable install.
 

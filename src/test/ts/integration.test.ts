@@ -146,6 +146,25 @@ describe.each(managers)('Yarn $version / lockfile v$schema', ({ alias: yarn, ver
   });
 });
 
+it('installs the highest compatible fix when a lower stable fix also satisfies the initial audit', async () => {
+  const { cwd, runner, run } = await project('packasso', 'yarn-4');
+  let audits = 0;
+  const initialAdvisory: Runner = (args, options) => {
+    if (args[0] === 'npm' && args[1] === 'audit' && ++audits === 1) {
+      // With this advisory both 1.1.12 and 1.1.18 qualify; the final audit still uses the full snapshot.
+      return Promise.resolve({ code: 1, stdout: JSON.stringify({ 'brace-expansion': [{ id: 1, vulnerable_versions: '<1.1.12' }] }), stderr: '' });
+    }
+    return runner(args, options);
+  };
+  const report = await fixAudit({ cwd, runner: initialAdvisory, policy: 'highest' });
+  expect(report.policy).toBe('highest');
+  expect(report.changes.map(change => change.to)).toEqual(['1.1.18']);
+  expect(report.remaining).toEqual([]);
+  const require = createRequire(join(cwd, 'package.json'));
+  expect(createRequire(require.resolve('minimatch'))('brace-expansion/package.json').version).toBe('1.1.18');
+  requireSuccess(await run(['install', '--immutable', '--check-resolutions']), 'Immutable install after highest-policy fix');
+});
+
 it('repairs the second semver branch with Yarn 2 when its audit can represent it', async () => {
   const { cwd, runner, run } = await project('masker', 'pm-yarn-2', false, '^9.0.3');
   const report = await fixAudit({ cwd, runner });

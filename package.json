@@ -4,7 +4,7 @@
   "description": "An experimental Yarn Berry audit fixer using temporary resolutions",
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=18.12"
   },
   "bin": {
     "yarn-berry-audit-fix": "target/main/cli.js"

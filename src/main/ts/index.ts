@@ -3,24 +3,26 @@ import { resolve, join, relative, isAbsolute } from 'node:path';
 import semver from 'semver';
 import { isVulnerable, jsonRecords, object, type Advisory } from './audit.js';
 import { descriptors, npmDescriptor, parseLockfile } from './lockfile.js';
-import { createPlan, type Plan } from './plan.js';
+import { createPlan, parsePolicy, type Plan, type UpdatePolicy } from './plan.js';
 import { withManifestBackups } from './manifest.js';
 import { restoreDescriptorHeaders } from './patch.js';
 import { auditResult, createRunner, publishedVersions, requireSuccess, yarnCommands, type Runner, type InstallMode } from './yarn.js';
 
 export { parseAudit, type Advisory } from './audit.js';
-export { createPlan, type Plan, type Change, type Skipped } from './plan.js';
+export { createPlan, type Plan, type Change, type Skipped, type UpdatePolicy } from './plan.js';
 export { createRunner, type Runner, type InstallMode } from './yarn.js';
 
 export interface FixOptions {
   cwd?: string;
   dryRun?: boolean;
   mode?: InstallMode;
+  policy?: UpdatePolicy;
   runner?: Runner;
   signal?: AbortSignal;
   onProgress?: (message: string) => void;
 }
 export interface FixResult extends Plan {
+  policy: UpdatePolicy;
   yarnVersion: string;
   changed: boolean;
   dryRun: boolean;
@@ -49,6 +51,7 @@ async function restore(files: Map<string, Buffer | undefined>): Promise<void> {
 
 /** Run at the workspace root. Yarn owns dependency resolution, fetching and graph normalization. */
 export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
+  const policy = parsePolicy(options.policy);
   const cwd = resolve(options.cwd ?? process.cwd());
   const manifestPath = join(cwd, 'package.json');
   const lockPath = join(cwd, 'yarn.lock');
@@ -88,8 +91,8 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
     options.onProgress?.(`Looking up published versions of ${name}`);
     versions[name] = publishedVersions(requireSuccess(await run(['npm', 'info', name, '--fields', 'versions', '--json']), 'Package metadata'), name);
   }
-  const plan = createPlan(lock, before, versions, existing as Record<string, string>);
-  const result: FixResult = { ...plan, yarnVersion, changed: false, dryRun: !!options.dryRun, before, remaining: before, warnings };
+  const plan = createPlan(lock, before, versions, existing as Record<string, string>, policy);
+  const result: FixResult = { ...plan, policy, yarnVersion, changed: false, dryRun: !!options.dryRun, before, remaining: before, warnings };
   if (options.dryRun || !plan.changes.length) return result;
 
   const guardPath = join(cwd, '.yarn-berry-audit-fix.lock');

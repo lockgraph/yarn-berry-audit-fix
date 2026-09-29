@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { parseAudit } from '../../main/ts/audit.js';
 import { createPlan } from '../../main/ts/plan.js';
+import { fixAudit } from '../../main/ts/index.js';
 import { parseLockfile, type Lockfile } from '../../main/ts/lockfile.js';
 import { auditResult, publishedVersions, supportedYarn } from '../../main/ts/yarn.js';
 import { readFixture, readFixtureManifest } from './build-fixtures.js';
@@ -43,12 +44,31 @@ describe('compatible planning', () => {
       { name: 'foo', descriptor: 'foo@npm:~1.2.0', from: '1.2.0', to: '1.2.5' },
     ]);
   });
-  it('never overrides a pinned or incompatible request', () => {
+  it('selects the highest safe stable version independently for each requested range', () => {
+    const advisories = [advisory, { ...advisory, id: '2', vulnerable: '>=1.11.0 <2' }];
+    const plan = createPlan(lock, advisories, { foo: [
+      '1.2.9', '1.10.0', '1.2.0', '2.0.0', '1.99.0-rc.1', 'invalid', '1.2.3', '1.9.0', '1.11.0',
+    ] }, {}, 'highest');
+    expect(plan.changes).toEqual([
+      { name: 'foo', descriptor: 'foo@npm:^1.0.0', from: '1.2.0', to: '1.10.0' },
+      { name: 'foo', descriptor: 'foo@npm:~1.2.0', from: '1.2.0', to: '1.2.9' },
+    ]);
+  });
+  it('does not downgrade under the highest policy when only older safe versions exist', () => {
+    const plan = createPlan(lock, [{ ...advisory, vulnerable: '>=1.2.0' }], { foo: ['1.1.0', '1.2.0'] }, {}, 'highest');
+    expect(plan.changes).toEqual([]);
+    expect(plan.skipped).toHaveLength(2);
+  });
+  it('rejects an unknown policy before planning or accessing project files', async () => {
+    expect(() => createPlan(lock, [advisory], { foo: ['1.2.3'] }, {}, 'latest' as never)).toThrow('Unsupported update policy');
+    await expect(fixAudit({ cwd: '/missing-project', policy: 'latest' as never })).rejects.toThrow('Unsupported update policy');
+  });
+  it.each(['lowest', 'highest'] as const)('never overrides a pinned or incompatible request with %s', policy => {
     const pinned = { ...lock, 'foo@npm:1.2.0': entry('1.2.0') };
-    const plan = createPlan(pinned, [advisory], { foo: ['1.2.3', '2.0.0'] });
+    const plan = createPlan(pinned, [advisory], { foo: ['1.2.3', '2.0.0'] }, {}, policy);
     expect(plan.changes).toHaveLength(2);
     expect(plan.skipped).toEqual([expect.objectContaining({ descriptor: 'foo@npm:1.2.0' })]);
-    expect(createPlan(lock, [advisory], { foo: ['2.0.0'] }).changes).toEqual([]);
+    expect(createPlan(lock, [advisory], { foo: ['2.0.0'] }, {}, policy).changes).toEqual([]);
   });
   it('preserves separate major branches and does not confuse patched ranges across branches', () => {
     const branches = { ...lock, 'foo@npm:^2': entry('2.0.0') };
@@ -56,7 +76,9 @@ describe('compatible planning', () => {
     expect(createPlan(branches, advisories, { foo: ['1.2.3', '2.0.3'] }).changes.map(c => c.to)).toEqual(['1.2.3', '1.2.3', '2.0.3']);
   });
   it.each(['foo', 'parent/foo', 'foo@npm:^1.0.0'])('preserves existing user resolutions: %s', key => {
-    expect(createPlan(lock, [advisory], { foo: ['1.2.3'] }, { [key]: '1.2.0' }).changes).toEqual([]);
+    for (const policy of ['lowest', 'highest'] as const) {
+      expect(createPlan(lock, [advisory], { foo: ['1.2.3'] }, { [key]: '1.2.0' }, policy).changes).toEqual([]);
+    }
   });
   it('reports unfixable and unsupported descriptors', () => {
     expect(createPlan(lock, [{ ...advisory, vulnerable: '*' }], { foo: ['9.0.0'] }).skipped).toHaveLength(2);

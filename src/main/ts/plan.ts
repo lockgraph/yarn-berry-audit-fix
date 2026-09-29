@@ -6,13 +6,21 @@ import { descriptors, npmDescriptor, type Lockfile } from './lockfile.js';
 export interface Change { name: string; descriptor: string; from: string; to: string; removed?: boolean }
 export interface Skipped { name: string; descriptor: string; version: string; reason: string }
 export interface Plan { changes: Change[]; skipped: Skipped[]; resolutions: Record<string, string> }
+export type UpdatePolicy = 'lowest' | 'highest';
+
+export function parsePolicy(value: unknown = 'lowest'): UpdatePolicy {
+  if (value !== 'lowest' && value !== 'highest') throw new Error(`Unsupported update policy: ${String(value)}; use lowest or highest`);
+  return value;
+}
 
 export function createPlan(
   lock: Lockfile,
   advisories: Advisory[],
   versions: Record<string, string[]>,
   existingResolutions: Record<string, string> = {},
+  policy: UpdatePolicy = 'lowest',
 ): Plan {
+  parsePolicy(policy);
   const protectedNames = new Set(Object.keys(existingResolutions).map(key => parseResolution(key).descriptor.fullName));
   const plan: Plan = { changes: [], skipped: [], resolutions: {} };
   for (const [descriptor, entry] of descriptors(lock)) {
@@ -33,7 +41,7 @@ export function createPlan(
     const candidate = (versions[name] ?? []).filter(version => semver.valid(version) &&
       !semver.prerelease(version) && semver.gt(version, entry.version!) &&
       semver.satisfies(version, request.range) && !isVulnerable(version, relevant))
-      .sort(semver.compare)[0];
+      .sort(policy === 'highest' ? semver.rcompare : semver.compare)[0];
     if (!candidate) { skip('No published safe version satisfies the original dependency range'); continue; }
     plan.changes.push({ name, descriptor, from: entry.version, to: candidate });
     plan.resolutions[descriptor] = `npm:${candidate}`;

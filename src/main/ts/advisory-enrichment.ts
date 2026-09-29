@@ -1,5 +1,6 @@
 import { advisoryDetails, type AdvisoryDetails } from './advisory-details.js';
-import { object } from './audit.js';
+import { object, type Advisory } from './audit.js';
+import type { FixResult } from './index.js';
 import type { ReportedChange } from './report.js';
 
 async function githubDetails(id: string, signal: AbortSignal): Promise<AdvisoryDetails> {
@@ -25,10 +26,10 @@ async function loadDetails(ids: string[], signal: AbortSignal, details: Map<stri
 }
 
 /** Optional display enrichment: its failure must not invalidate an already successful repair. */
-export async function enrichChanges(changes: ReportedChange[], warnings: string[], signal?: AbortSignal): Promise<ReportedChange[]> {
-  const ids = [...new Set(changes.flatMap(change => change.advisories)
+async function enrichGroups(groups: Advisory[][], warnings: string[], signal?: AbortSignal): Promise<Advisory[][]> {
+  const ids = [...new Set(groups.flat()
     .filter(advisory => advisory.cves === undefined || !advisory.cvss).flatMap(advisory => advisory.ghsaId ? [advisory.ghsaId] : []))];
-  if (!ids.length) return changes;
+  if (!ids.length) return groups;
   signal?.throwIfAborted();
   const controller = new AbortController();
   const abort = () => controller.abort(signal!.reason);
@@ -43,7 +44,19 @@ export async function enrichChanges(changes: ReportedChange[], warnings: string[
     clearTimeout(timeout);
     signal?.removeEventListener('abort', abort);
   }
-  return changes.map(change => ({ ...change, advisories: change.advisories.map(advisory => ({
+  return groups.map(advisories => advisories.map(advisory => ({
     ...details.get(advisory.ghsaId ?? ''), ...advisory,
-  })) }));
+  })));
+}
+
+export async function enrichChanges(changes: ReportedChange[], warnings: string[], signal?: AbortSignal): Promise<ReportedChange[]> {
+  const groups = await enrichGroups(changes.map(change => change.advisories), warnings, signal);
+  return changes.map((change, index) => ({ ...change, advisories: groups[index]! }));
+}
+
+export async function enrichReport(result: FixResult, signal?: AbortSignal): Promise<FixResult> {
+  const groups = await enrichGroups([result.before, result.remaining, ...result.changes.map(change => change.advisories)], result.warnings, signal);
+  return { ...result, before: groups[0]!, remaining: groups[1]!,
+    changes: result.changes.map((change, index) => ({ ...change, advisories: groups[index + 2]! })),
+  };
 }

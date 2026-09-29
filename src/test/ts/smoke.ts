@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createRunner, requireSuccess } from '../../main/ts/yarn.js';
 import { lookupVersions } from '../../main/ts/metadata.js';
-import type { FixResult } from '../../main/ts/index.js';
+import type { JsonReport, JsonFailure } from '../../main/ts/index.js';
 import { prepareProject } from './project.js';
 import { startRegistry } from './registry.js';
 
@@ -24,6 +24,12 @@ async function assertSilent(args: string[], code: number) {
 for (const flag of ['--help', '-h', '--version', '-v']) await assertSilent([flag], 0);
 await assertSilent(['--unknown'], 2);
 await assertSilent(['--cwd', 'missing-project'], 2);
+const failure = await runCLI(['--json', '--cwd', 'missing-project']);
+assert.equal(failure.code, 2);
+const failureReport: JsonFailure = JSON.parse(failure.stdout);
+assert.equal(failureReport.status, 'error');
+assert.equal(failureReport.meta.toolVersion, packageManifest.version);
+assert.ok(failureReport.error.message);
 
 const registry = await startRegistry();
 try {
@@ -47,8 +53,15 @@ try {
       assert.ok(metadata.semver!.includes('7.8.5'));
       const args = ['--cwd', cwd, '--yarn-path', yarn, '--json', '--policy=highest',
         ...(mode ? [`--mode=${mode}`] : []), `--audit-registry=${registry.url}`];
-      const dry: FixResult = JSON.parse(requireSuccess(await runCLI([...args, '--dry-run']), 'CLI dry run'));
+      const dry: JsonReport = JSON.parse(requireSuccess(await runCLI([...args, '--dry-run']), 'CLI dry run'));
       assert.equal(dry.changed, false);
+      assert.equal(dry.status, 'dry-run');
+      assert.equal(dry.meta.schemaVersion, 1);
+      assert.equal(dry.meta.toolVersion, packageManifest.version);
+      assert.equal(new Date(dry.meta.generatedAt).toISOString(), dry.meta.generatedAt);
+      assert.equal(dry.summary.applied, 0);
+      assert.equal(dry.summary.planned, workspace ? 2 : 1);
+      assert.deepEqual(dry.cves.resolved, []);
       assert.equal(dry.policy, 'highest');
       assert.equal(dry.changes.length, workspace ? 2 : 1);
       assert.ok(dry.changes.every(change => change.advisories.some(advisory => advisory.ghsaId && advisory.cvss)));
@@ -64,8 +77,14 @@ try {
         assert.equal((await runCLI([...args, '--mode=update-lockfile'])).code, 2);
         assert.deepEqual(await Promise.all(files.map(file => readFile(join(cwd, file)))), original);
       }
-      const result: FixResult = JSON.parse(requireSuccess(await runCLI(args), 'CLI repair'));
+      const result: JsonReport = JSON.parse(requireSuccess(await runCLI(args), 'CLI repair'));
       assert.equal(result.changed, true);
+      assert.equal(result.status, 'clean');
+      assert.equal(result.summary.applied, workspace ? 2 : 1);
+      assert.equal(result.summary.advisories.resolved, result.before.length);
+      assert.deepEqual(result.resolved, result.before);
+      assert.deepEqual(result.introduced, []);
+      assert.deepEqual(result.cves.remaining, []);
       assert.equal(result.policy, 'highest');
       assert.deepEqual(result.remaining, []);
       assert.deepEqual(result.changes.map(change => change.to), workspace ? ['1.1.18', '2.1.4'] : ['1.1.18']);
@@ -80,7 +99,7 @@ try {
       assert.deepEqual(await readFile(join(cwd, 'yarn.lock')), fixed);
       const installed = requireSuccess(await project.run(['node', '-e', 'const r=require("module").createRequire(require.resolve("minimatch")); console.log(r("brace-expansion/package.json").version)']), 'Installed dependency').trim();
       assert.equal(installed, '1.1.18');
-      assert.equal((JSON.parse(requireSuccess(await runCLI(args), 'Repeated repair')) as FixResult).changed, false);
+      assert.equal((JSON.parse(requireSuccess(await runCLI(args), 'Repeated repair')) as JsonReport).changed, false);
       // Existing resolutions prevent repair; the flag changes only the exit status.
       const pinned = JSON.parse(original[0]!.toString());
       pinned.resolutions = { 'brace-expansion': 'npm:1.1.11' };
@@ -88,10 +107,14 @@ try {
       requireSuccess(await project.run(['install']), 'Prepare unfixable CLI report');
       const unfixable = await runCLI(args);
       assert.equal(unfixable.code, 1);
-      assert.ok((JSON.parse(unfixable.stdout) as FixResult).remaining.length);
+      const { meta: unfixedMeta, ...unfixedReport }: JsonReport = JSON.parse(unfixable.stdout);
+      assert.ok(unfixedReport.remaining.length);
+      assert.equal(unfixedReport.status, 'unfixed');
       const ignored = await runCLI([...args, '--ignore-unfixed']);
       assert.equal(ignored.code, 0);
-      assert.deepEqual(JSON.parse(ignored.stdout), JSON.parse(unfixable.stdout));
+      const { meta: ignoredMeta, ...ignoredReport }: JsonReport = JSON.parse(ignored.stdout);
+      assert.equal(ignoredMeta.schemaVersion, unfixedMeta.schemaVersion);
+      assert.deepEqual(ignoredReport, unfixedReport);
       assert.equal((await runCLI([...args, '--ignore-unfixed', '--cwd', join(cwd, 'missing-project')])).code, 2);
       await assertSilent(args, 1);
       await assertSilent([...args, '--ignore-unfixed'], 0);

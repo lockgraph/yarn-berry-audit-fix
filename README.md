@@ -24,6 +24,7 @@ yarn dlx yarn-berry-audit-fix --policy=highest
 yarn dlx yarn-berry-audit-fix --mode=update-lockfile
 yarn dlx yarn-berry-audit-fix --audit-registry=https://registry.npmjs.org
 yarn dlx yarn-berry-audit-fix --ignore-unfixed
+yarn dlx --quiet yarn-berry-audit-fix --json > audit-fix.json
 ```
 
 | Option | Effect |
@@ -33,7 +34,7 @@ yarn dlx yarn-berry-audit-fix --ignore-unfixed
 | `--mode=update-lockfile` | Update the lockfile without linking or building. Requires Yarn 3+; rejected on Yarn 2. May download packages to the cache. |
 | `--audit-registry URL` | Send project and candidate audits directly to this registry using the bulk API. Works with Yarn 2/3/4; metadata and downloads keep their existing registry settings. |
 | `--cwd DIR` | Use another project root. |
-| `--json` | Print the report as JSON, including planned/applied changes, skipped requests, remaining advisories, and warnings. |
+| `--json` | Print a versioned digest with tool version, UTC timestamp, changes, skips, resolved/remaining CVEs, and warnings. Errors also produce JSON. |
 | `--silent` | Write nothing to stdout or stderr, including errors. Overrides JSON, help, version, and dry-run output; exit codes stay unchanged. |
 | `--ignore-unfixed` | Exit successfully when advisories remain. Keeps the findings visible; execution errors and interruption still fail. |
 | `--yarn-path FILE` | Run a specific Yarn JavaScript bundle instead of `yarn` from PATH. |
@@ -45,6 +46,8 @@ By default, dependencies are installed. After a lockfile-only run, use `yarn ins
 `--audit-registry` takes a base URL; requests go to `/-/npm/v1/security/advisories/bulk`. Without it, project audits use Yarn first and fall back to the public npm bulk API if Yarn fails. Proposed versions are always checked through bulk before installation, including during dry runs, using the override or public npm registry. Direct project audits include every locked npm version, including aliases and patched npm packages. Direct requests do not read Yarn registry settings or credentials.
 
 Exit codes: `0` for a clean audit, dry run, or `--ignore-unfixed`; `1` for remaining advisories; `2` for an execution error; `130` for interruption. `--ignore-unfixed` only suppresses code `1`.
+
+For automation, see the [JSON report format](docs/json-report.md). Stdout contains one JSON object; progress goes to stderr. `--dry-run --json` reports planned changes without claiming any CVEs have been resolved.
 
 Each bump lists the advisories it resolves, with CVE IDs and CVSS scores when available. The CLI supplements missing metadata from GitHub's public Advisory API; a custom `--audit-registry` uses only its supplied metadata. CVSS is displayed only alongside CVE IDs; findings without a CVE show their GHSA ID alone. Unknown CVE scores are shown as unavailable. Failed supplementary lookups produce warnings without failing the repair.
 

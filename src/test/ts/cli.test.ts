@@ -73,7 +73,10 @@ it('passes options to the fixer and keeps progress and warnings out of JSON outp
   await run('--cwd', 'project', '--yarn-path', 'yarn.cjs', '--dry-run', '--mode=update-lockfile', '--policy=highest', '--audit-registry', 'https://audit.example.org', '--json');
   expect(createRunner).toHaveBeenCalledWith([process.execPath, resolve('yarn.cjs')]);
   expect(fixAudit).toHaveBeenCalledWith(expect.objectContaining({ cwd: 'project', runner, dryRun: true, mode: 'update-lockfile', policy: 'highest', auditRegistry: 'https://audit.example.org' }));
-  expect(console.log).toHaveBeenCalledExactlyOnceWith(JSON.stringify(result, null, 2));
+  expect(console.log).toHaveBeenCalledOnce();
+  const json = JSON.parse(vi.mocked(console.log).mock.calls[0]![0]);
+  expect(json).toMatchObject({ ...result, status: 'dry-run', summary: { applied: 0, planned: 1 } });
+  expect(json.meta).toEqual({ schemaVersion: 1, toolVersion: expect.any(String), generatedAt: expect.stringMatching(/^\d{4}-\d\d-\d\dT.*Z$/) });
   expect(console.error).toHaveBeenCalledWith('Auditing');
   expect(console.error).toHaveBeenCalledWith('Warning: Legacy audit is incomplete');
   expect(process.exitCode).toBe(0);
@@ -216,7 +219,8 @@ it.each([false, true])('keeps remaining advisories visible but exits successfull
   const result = report({ remaining: [advisory], skipped: [{ name: 'foo', descriptor: 'foo@npm:1.0.0', version: '1.0.0', reason: 'Exact pin' }] });
   vi.mocked(fixAudit).mockResolvedValue(result);
   await run('--ignore-unfixed', ...(json ? ['--json'] : []));
-  expect(console.log).toHaveBeenCalledWith(json ? JSON.stringify(result, null, 2) : '1 advisory record(s) remaining.');
+  if (json) expect(JSON.parse(vi.mocked(console.log).mock.calls[0]![0])).toMatchObject({ ...result, status: 'unfixed' });
+  else expect(console.log).toHaveBeenCalledWith('1 advisory record(s) remaining.');
   expect(process.exitCode).toBe(0);
 });
 
@@ -260,4 +264,45 @@ it('includes supplementary CVE metadata in JSON while reporting display lookup f
   expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Some CVE/CVSS details could not be loaded'));
   expect(JSON.parse(vi.mocked(console.log).mock.calls[0]![0]).changes[0].advisories[0].ghsaId).toBe('GHSA-v6h2-p8h4-qcjw');
   expect(process.exitCode).toBe(0);
+});
+
+it('includes JSON metadata and resolved CVEs using a custom registry without public metadata requests', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  const affected = { ...advisory, cves: ['CVE-2025-5889'], cvss: { score: 3.1 } };
+  vi.mocked(fixAudit).mockResolvedValue(report({ changed: true, before: [affected], changes: [{ ...change, advisories: [affected] }] }));
+  await run('--json', '--audit-registry=https://audit.example.org');
+  expect(fetch).not.toHaveBeenCalled();
+  expect(console.log).toHaveBeenCalledOnce();
+  expect(JSON.parse(vi.mocked(console.log).mock.calls[0]![0])).toMatchObject({
+    status: 'clean', summary: { applied: 1 }, resolved: [affected], cves: { resolved: ['CVE-2025-5889'], complete: true },
+  });
+});
+
+it.each([['--unknown', '--json'], ['--json', '--policy=unknown']])('returns a machine-readable argument error: %j', async (...args) => {
+  await run(...args);
+  expect(console.log).toHaveBeenCalledOnce();
+  expect(JSON.parse(vi.mocked(console.log).mock.calls[0]![0])).toMatchObject({ meta: { schemaVersion: 1 }, status: 'error', error: { message: expect.any(String) } });
+  expect(console.error).not.toHaveBeenCalled();
+  expect(process.exitCode).toBe(2);
+});
+
+it.each([undefined, 'SIGINT'] as const)('returns a machine-readable operational failure or interruption: %s', async signal => {
+  vi.mocked(fixAudit).mockImplementation(async options => {
+    if (signal) process.emit(signal);
+    throw options?.signal?.reason ?? new Error('Install failed');
+  });
+  await run('--json', '--ignore-unfixed');
+  expect(console.log).toHaveBeenCalledOnce();
+  expect(JSON.parse(vi.mocked(console.log).mock.calls[0]![0])).toMatchObject({
+    meta: { schemaVersion: 1 }, status: signal ? 'interrupted' : 'error', error: { message: signal ? 'Interrupted' : 'Install failed' },
+  });
+  expect(console.error).not.toHaveBeenCalled();
+  expect(process.exitCode).toBe(signal ? 130 : 2);
+});
+
+it('silences JSON errors without changing their exit status', async () => {
+  await run('--json', '--unknown', '--silent');
+  expect(console.log).not.toHaveBeenCalled();
+  expect(console.error).not.toHaveBeenCalled();
+  expect(process.exitCode).toBe(2);
 });

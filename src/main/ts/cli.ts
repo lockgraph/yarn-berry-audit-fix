@@ -5,12 +5,14 @@ import { fixAudit, createRunner } from './index.js';
 import { parsePolicy } from './plan.js';
 import { packageVersion } from './package-version.js';
 import { reportLines } from './report.js';
-import { enrichChanges } from './advisory-enrichment.js';
+import { enrichChanges, enrichReport } from './advisory-enrichment.js';
+import { createJsonFailure, createJsonReport } from './json-report.js';
 import { publicAuditRegistry } from './bulk.js';
 import { parseAuditRegistry } from './yarn.js';
 
 // Detect silence before strict parsing so invalid arguments can also fail quietly.
 const silent = process.argv.slice(2).find(arg => arg === '--silent' || arg === '--') === '--silent';
+const json = process.argv.slice(2).find(arg => arg === '--json' || arg === '--') === '--json';
 const log = (message: string) => { if (!silent) console.log(message); };
 const error = (message: unknown) => { if (!silent) console.error(message); };
 // Node 18 emits experimental fetch warnings directly to stderr.
@@ -45,7 +47,7 @@ Yarn 2.4+, 3.x / 4.0.1+. Installs compatible fixes by default.
   --mode=update-lockfile       Update only the lockfile (Yarn 3+)
   --audit-registry URL         Registry for direct bulk audits (Yarn 2/3/4)
   --ignore-unfixed             Exit 0 when advisories remain; execution errors still fail
-  --json                       Print the report as JSON
+  --json                       Print a machine-readable digest, including resolved CVEs
   --silent                     Print nothing; preserve exit codes
   --yarn-path FILE             Yarn JavaScript bundle
   -h, --help                   Show this help
@@ -56,7 +58,7 @@ Exit codes: 0 = success/dry run, 1 = remaining advisories, 2 = execution error, 
     log(await packageVersion());
   } else {
     if (values.mode !== undefined && values.mode !== 'update-lockfile') throw new Error(`Unsupported install mode: ${values.mode}`);
-    const result = await fixAudit({
+    let result = await fixAudit({
       cwd: values.cwd,
       dryRun: values['dry-run'],
       mode: values.mode,
@@ -68,16 +70,19 @@ Exit codes: 0 = success/dry run, 1 = remaining advisories, 2 = execution error, 
     });
     if (!silent) {
       if (!values['audit-registry'] || parseAuditRegistry(values['audit-registry']) === publicAuditRegistry) {
-        result.changes = await enrichChanges(result.changes, result.warnings, controller.signal);
+        if (values.json) result = await enrichReport(result, controller.signal);
+        else result.changes = await enrichChanges(result.changes, result.warnings, controller.signal);
       }
       for (const warning of result.warnings) error(`Warning: ${warning}`);
-      if (values.json) log(JSON.stringify(result, null, 2));
+      if (values.json) log(JSON.stringify(await createJsonReport(result), null, 2));
       else for (const line of reportLines(result, values.mode)) log(line);
     }
     process.exitCode = !values['ignore-unfixed'] && !result.dryRun && result.remaining.length ? 1 : 0;
   }
 } catch (failure) {
-  error(failure instanceof Error ? failure.message : failure);
+  const message = failure instanceof Error ? failure.message : String(failure);
+  if (json) log(JSON.stringify(await createJsonFailure(message, controller.signal.aborted), null, 2));
+  else error(message);
   process.exitCode = controller.signal.aborted ? 130 : 2;
 } finally {
   process.off('SIGINT', onSignal);

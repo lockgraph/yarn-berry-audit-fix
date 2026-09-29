@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { enrichChanges } from '../../main/ts/advisory-enrichment.js';
+import { enrichChanges, enrichReport } from '../../main/ts/advisory-enrichment.js';
 import type { ReportedChange } from '../../main/ts/report.js';
 
 const ghsaId = 'GHSA-v6h2-p8h4-qcjw';
@@ -27,6 +27,21 @@ it('keeps existing scores and skips complete metadata or findings with no GHSA',
   expect(fetch).not.toHaveBeenCalled();
   const result = await enrichChanges([{ ...change, advisories: [{ ...change.advisories[0]!, cvss: { score: 7.5 } }] }], []);
   expect(result[0]?.advisories[0]?.cvss).toEqual({ score: 7.5 });
+});
+
+it('enriches initial, remaining and changed findings in one batch, including advisories absent from the planned changes', async () => {
+  const other = { ...change.advisories[0]!, id: '2', name: 'bar', ghsaId: 'GHSA-mh29-5h37-fv8m' };
+  const fetch = vi.fn().mockImplementation(async (url: string) => new Response(JSON.stringify({ ...response, ghsa_id: url.split('/').at(-1) })));
+  vi.stubGlobal('fetch', fetch);
+  const input = { changes: [change], skipped: [], resolutions: {}, policy: 'lowest' as const, yarnVersion: '4.18.1',
+    changed: true, dryRun: false, before: [...change.advisories, other], remaining: [other], warnings: [],
+  };
+  const result = await enrichReport(input);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(result.before.every(item => item.cves?.includes('CVE-2025-5889'))).toBe(true);
+  expect(result.remaining[0]?.cves).toEqual(['CVE-2025-5889']);
+  expect(result.changes[0]?.advisories[0]?.cves).toEqual(['CVE-2025-5889']);
+  expect(input.before[0]?.cves).toBeUndefined();
 });
 
 it.each([403, 429, 503])('stops taking queued lookups on HTTP %s without failing the repair', async status => {

@@ -17,6 +17,7 @@ export { parseAudit, type Advisory } from './audit.js';
 export { createPlan, type Plan, type Change, type Skipped, type UpdatePolicy } from './plan.js';
 export { createRunner, type Runner, type InstallMode } from './yarn.js';
 export type { ReportedChange } from './report.js';
+export { createJsonReport, type JsonReport, type JsonFailure, type JsonMetadata } from './json-report.js';
 
 export interface FixOptions {
   cwd?: string;

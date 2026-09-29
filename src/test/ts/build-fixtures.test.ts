@@ -13,6 +13,19 @@ let manifestPath: string;
 let directory: string;
 const log = () => {};
 
+function gate() {
+  let release!: () => void;
+  const promise = new Promise<void>(resolve => { release = resolve; });
+  return { promise, release };
+}
+
+async function writeArchives(count: number): Promise<string[]> {
+  const names = Array.from({ length: count }, (_, index) => `fixture-${index}.tgz`);
+  const sha256 = createHash('sha256').update(contents).digest('hex');
+  await writeFile(manifestPath, JSON.stringify(Object.fromEntries(names.map(name => [name, { url, sha256 }]))));
+  return names;
+}
+
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'audit-fix-fixtures-'));
   manifestPath = join(root, 'provenance.json');
@@ -22,6 +35,70 @@ beforeEach(async () => {
   }));
 });
 afterEach(async () => { await rm(root, { recursive: true, force: true }); });
+
+it('downloads concurrently with at most eight response bodies in flight', async () => {
+  const names = await writeArchives(19);
+  const bodies = gate();
+  let active = 0;
+  let peak = 0;
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => {
+    peak = Math.max(peak, ++active);
+    return new Response(new ReadableStream({
+      async start(controller) {
+        await bodies.promise;
+        controller.enqueue(Buffer.from(contents));
+        controller.close();
+        active--;
+      },
+    }));
+  });
+  const build = buildFixtures({ manifestPath, directory, fetcher, log });
+  try {
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(8));
+    expect(active).toBe(8);
+  } finally {
+    bodies.release();
+    await build;
+  }
+  expect(peak).toBe(8);
+  expect(active).toBe(0);
+  expect(fetcher).toHaveBeenCalledTimes(names.length);
+  expect((await readdir(directory)).sort()).toEqual(names.sort());
+  for (const name of names) expect((await readFixture(name, directory, manifestPath)).toString()).toBe(contents);
+});
+
+it('stops queued work after a failure and waits for active workers before rejecting', async () => {
+  await writeArchives(19);
+  const failure = gate();
+  const downloads = gate();
+  const response = new Response('Unavailable', { status: 503 });
+  const observedFailure = vi.spyOn(response, 'ok', 'get');
+  const fetcher = vi.fn<typeof fetch>()
+    .mockImplementationOnce(async () => { await failure.promise; return response; })
+    .mockImplementation(async () => { await downloads.promise; return new Response(contents); });
+  const messages = vi.fn();
+  let settled = false;
+  const result = buildFixtures({ manifestPath, directory, fetcher, log: messages }).then(
+    () => { settled = true; return undefined; },
+    error => { settled = true; return error; },
+  );
+  try {
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(8));
+    failure.release();
+    await vi.waitFor(() => expect(observedFailure).toHaveBeenCalled());
+    expect(settled).toBe(false);
+  } finally {
+    failure.release();
+    downloads.release();
+    await result;
+  }
+  expect(await result).toEqual(expect.objectContaining({ message: expect.stringContaining('HTTP 503') }));
+  expect(fetcher).toHaveBeenCalledTimes(8);
+  const files = await readdir(directory);
+  expect(files).toHaveLength(7);
+  for (const name of files) expect((await readFixture(name, directory, manifestPath)).toString()).toBe(contents);
+  expect(messages.mock.calls.some(([message]) => message.startsWith('Fixtures ready:'))).toBe(false);
+});
 
 it('downloads pinned bytes and reuses a verified cache without network access or rewriting files', async () => {
   const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => new Response(contents));

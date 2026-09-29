@@ -3,8 +3,12 @@ name: CI
 
 on: [push, pull_request, workflow_dispatch]
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  # A new PR run can replace an old one; publishing must finish uninterrupted.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   npm_config_audit: false
@@ -15,6 +19,8 @@ jobs:
     name: Full suite (Linux, Node 24)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read # Checkout the source used for build and tests.
     steps:
       - uses: actions/checkout@v7
         with:
@@ -47,6 +53,8 @@ jobs:
     needs: test
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    permissions:
+      contents: read # Checkout the manifests used by runtime smokes.
     strategy:
       fail-fast: false
       matrix:
@@ -77,14 +85,15 @@ jobs:
     needs: [test, smoke]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    environment: release
     timeout-minutes: 15
     concurrency:
       group: release-${{ github.repository }}
       cancel-in-progress: false
     permissions:
-      contents: write
-      packages: write
-      id-token: write
+      contents: write # Push the release commit/tag and create a GitHub release.
+      packages: write # Publish the organization-scoped GitHub Packages alias.
+      id-token: write # Authenticate npm publishing through OIDC.
     steps:
       - uses: actions/checkout@v7
         with:
@@ -117,6 +126,7 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions: {}
     steps:
       - uses: actions/setup-node@v7
         with:

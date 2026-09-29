@@ -45,7 +45,7 @@ target/smoke-managers/              Standalone Yarn bundles for CI
 
 [`build-fixtures.ts`](ts/build-fixtures.ts) downloads assets and verifies their expected hashes before saving them. GitHub files and tarballs are preserved byte for byte. Registry metadata is normalized to the declared package versions and installation fields; audit responses are reduced to declared advisory IDs. New releases and unrelated advisories do not affect the snapshots. Changes to pinned data fail verification instead of silently updating expectations.
 
-Generated lockfiles, manifests, licenses, metadata, audit JSON, and tarballs are all ignored by Git. Valid cached assets are reused without network requests; missing or corrupt assets are downloaded again. Tests read assets through provenance and verify their hashes. They never download fixtures implicitly.
+Generated lockfiles, manifests, licenses, metadata, audit JSON, and tarballs are all ignored by Git. Valid cached assets are reused without network requests; missing or corrupt assets are downloaded by a pool of eight workers. On failure, the builder stops taking queued work and waits for active workers before rejecting. Tests read assets through provenance and verify their hashes. They never download fixtures implicitly.
 
 A fresh checkout needs network access for dependency installation and fixture preparation. Once prepared, tests require no external network access, but integration tests must be able to bind a local HTTP server on `127.0.0.1`.
 
@@ -127,7 +127,7 @@ Once prepared, `node target/smoke/test/ts/smoke.js` can run on an older Node wit
 
 ## Releases
 
-Pushes to `master` release only after the full suite and all three runtime smoke jobs pass. The release job downloads the tested `target/main` artifact and runs `npm run release` with Node 26. It does not install project dependencies or rebuild the package.
+Pushes to `master` release only after the full suite and all three runtime smoke jobs pass. The release job uses the `release` GitHub environment, downloads the tested `target/main` artifact, and runs `npm run release` with Node 26. It does not install project dependencies or rebuild the package.
 
 The pinned `zx-semrel` generates the version, changelog, release commit, tag, and GitHub release from conventional commits, then publishes to npm through OIDC and to GitHub Packages as `@lockgraph/yarn-berry-audit-fix`. The first release starts at `0.1.0`; later releases derive their version from stable Git tags. Organization variables supply `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL`; `GIT_SIGN_KEY` signs the release commit and tag. GitHub authentication uses the workflow's `GITHUB_TOKEN`.
 

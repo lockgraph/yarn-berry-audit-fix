@@ -1,3 +1,8 @@
+## [0.2.0](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.1.1...v0.2.0) (2026-09-29)
+
+### Features
+* feat: handle custom registry urls ([f967d3d](https://github.com/lockgraph/yarn-berry-audit-fix/commit/f967d3dca2de228a0a8abd90776bb2e26e906d30))
+
 ## [0.1.1](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.1.0...v0.1.1) (2026-09-29)
 
 ### Fixes & improvements

@@ -1,3 +1,8 @@
+## [0.5.0](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.4.0...v0.5.0) (2026-09-29)
+
+### Features
+* feat: introduce `json` report ([8c7fd8b](https://github.com/lockgraph/yarn-berry-audit-fix/commit/8c7fd8b37c27c190203a13b47b283882779898ef))
+
 ## [0.4.0](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.3.0...v0.4.0) (2026-09-29)
 
 ### Features

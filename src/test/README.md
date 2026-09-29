@@ -20,6 +20,8 @@ npm run typecheck
 npm run build
 ```
 
+`npm run check:quick` prepares fixtures, checks types, runs unit and real-world lockfile tests, builds the package, and runs four native CLI smokes. It excludes the full native install matrices in `*integration.test.ts`; the fast corpus checks live in `real-world.test.ts` and run in both flows.
+
 The compiled CLI can be used locally with `node target/main/cli.js --cwd /path/to/project --dry-run`.
 
 ## Layout
@@ -107,7 +109,17 @@ Peer-context edge cases, native build scripts, custom plugins, private registry 
 
 ## CI and runtime smokes
 
-[The CI workflow](../../.github/workflows/ci.yml) runs the full suite on Linux with Node 24, then passes the compiled CLI, smoke harness, fixture assets, and standalone Yarn bundles to three smoke jobs:
+[The CI workflow](../../.github/workflows/ci.yml) selects checks by event. Every flow builds and tests on Linux with Node 24:
+
+| Trigger | Checks | Additional jobs |
+| --- | --- | --- |
+| Push to a feature branch | `check:quick`: unit tests, all real-world lockfile formats, and four native CLI smokes | None |
+| Pull request or manual run | Full suite with coverage | Node/OS smoke matrix below |
+| Push to `master` | Full suite with coverage and four native CLI smokes | Qlty upload, release, published-package smoke |
+
+Feature pushes avoid repeating the expensive install matrices already covered by the PR. Direct pushes to `master` retain the full Linux suite before publishing. Superseded branch and PR checks are cancelled; release pushes run to completion. Tag pushes do not trigger another run.
+
+PRs and manual runs pass the compiled CLI, smoke harness, fixture assets, and standalone Yarn bundles to three smoke jobs:
 
 | OS | Node | Check |
 | --- | --- | --- |
@@ -130,7 +142,7 @@ Once prepared, `node target/smoke/test/ts/smoke.js` can run on an older Node wit
 
 ## Releases
 
-Pushes to `master` release only after the full suite and all three runtime smoke jobs pass. The release job uses the `release` GitHub environment, downloads the tested `target/main` artifact, and runs `npm run release` with Node 26. It does not install project dependencies or rebuild the package.
+Pushes to `master` release only after the full Linux suite and the four native CLI smokes pass in the build job. The platform matrix runs on PRs and manual runs. The release job depends on the build job, so a skipped PR-only matrix does not skip the release. It uses the `release` GitHub environment, downloads the tested `target/main` artifact, and runs `npm run release` with Node 26. It does not install project dependencies or rebuild the package.
 
 The pinned `zx-semrel` generates the version, changelog, release commit, tag, and GitHub release from conventional commits, then publishes to npm through OIDC and to GitHub Packages as `@lockgraph/yarn-berry-audit-fix`. The first release starts at `0.1.0`; later releases derive their version from stable Git tags. Organization variables supply `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, and `GIT_COMMITTER_EMAIL`; `GIT_SIGN_KEY` signs the release commit and tag. GitHub authentication uses the workflow's `GITHUB_TOKEN`.
 

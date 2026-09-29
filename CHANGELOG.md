@@ -1,3 +1,8 @@
+## [0.2.1](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.2.0...v0.2.1) (2026-09-29)
+
+### Fixes & improvements
+* fix: audit update candidates before install and support Yarn catalogs ([10460ed](https://github.com/lockgraph/yarn-berry-audit-fix/commit/10460ed8fe8b6059d694027eaa7feced2ead28dc))
+
 ## [0.2.0](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.1.1...v0.2.0) (2026-09-29)
 
 ### Features

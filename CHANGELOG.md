@@ -1,3 +1,8 @@
+## [0.5.1](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.5.0...v0.5.1) (2026-09-30)
+
+### Fixes & improvements
+* perf: simplify overrides inject flow ([802d26e](https://github.com/lockgraph/yarn-berry-audit-fix/commit/802d26ed723602a24a87b7e2a0584703629fefb3))
+
 ## [0.5.0](https://github.com/lockgraph/yarn-berry-audit-fix/compare/v0.4.0...v0.5.0) (2026-09-29)
 
 ### Features

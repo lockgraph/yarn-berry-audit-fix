@@ -8,7 +8,7 @@ import { descriptors, npmDescriptor, parseLockfile, type Lockfile } from './lock
 import { createPlan, parsePolicy, type Change, type Plan, type UpdatePolicy } from './plan.js';
 import { withManifestBackups } from './manifest.js';
 import { lookupVersions } from './metadata.js';
-import { restoreDescriptorHeaders } from './patch.js';
+import { withResolutionAliases } from './resolution-aliases.js';
 import { verifiedPlan } from './planning.js';
 import { describeChanges, type ReportedChange } from './report.js';
 import { createRunner, parseAuditRegistry, requireSuccess, yarnCommands, type Runner, type InstallMode } from './yarn.js';
@@ -84,7 +84,7 @@ function verifiedChanges(lock: Lockfile, changes: Change[], advisories: Advisory
     if (!entry) return { ...change, removed: true };
     if (!entry.version || !semver.satisfies(entry.version, npmDescriptor(change.descriptor)!.range) ||
         isVulnerable(entry.version, advisories.filter(a => a.name === change.name))) {
-      throw new Error(`Fix did not survive manifest restoration: ${change.descriptor}`);
+      throw new Error(`Fix did not produce a safe compatible resolution: ${change.descriptor}`);
     }
     return { ...change, to: entry.version };
   });
@@ -106,9 +106,9 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
     throw new Error('Invalid package.json resolutions');
   }
   const runner = options.runner ?? createRunner();
-  const run = (args: string[]) => runner(args, {
+  const run = (args: string[], env: NodeJS.ProcessEnv = {}) => runner(args, {
     cwd, signal: options.signal,
-    env: { ...process.env, YARN_ENABLE_SCRIPTS: 'false', YARN_ENABLE_TELEMETRY: '0', YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' },
+    env: { ...process.env, ...env, YARN_ENABLE_SCRIPTS: 'false', YARN_ENABLE_TELEMETRY: '0', YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' },
   });
   const yarnVersion = requireSuccess(await run(['--version']), 'Yarn version').trim();
   const commands = yarnCommands(yarnVersion, options.mode);
@@ -145,16 +145,15 @@ export async function fixAudit(options: FixOptions = {}): Promise<FixResult> {
     const originalState = await optionalRead(stateFile);
     try {
       options.signal?.throwIfAborted();
-      options.onProgress?.(`Installing ${plan.changes.length} compatible temporary resolutions`);
+      options.onProgress?.(`Installing ${plan.changes.length} compatible resolution aliases`);
       await withManifestBackups(manifests, async () => {
-        await writeFile(manifestPath, JSON.stringify({ ...manifest, resolutions: { ...existing, ...plan.resolutions } }, null, 2) + '\n');
-        requireSuccess(await run(commands.install), 'Temporary resolutions install');
+        await withResolutionAliases(cwd, plan.changes, async pluginPath => {
+          const plugins = [process.env.YARN_PLUGINS, pluginPath].filter(Boolean).join(';');
+          requireSuccess(await run(commands.install, { YARN_PLUGINS: plugins }), 'Resolution aliases install');
+        });
       });
       await restore(preserved);
-      options.onProgress?.('Restoring original dependency request headers in the lockfile');
-      const generatedLock = await readFile(lockPath, 'utf8');
-      await writeFile(lockPath, restoreDescriptorHeaders(generatedLock, plan.changes, catalogs));
-      options.onProgress?.('Auditing the restored project');
+      options.onProgress?.('Auditing the updated project');
       const finalLock = parseLockfile(await readFile(lockPath, 'utf8'));
       result.remaining = await auditor.read(finalLock);
       const findings = [...advisories, ...result.remaining];

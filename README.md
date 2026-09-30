@@ -4,7 +4,7 @@
 [![Code Coverage](https://qlty.sh/gh/lockgraph/projects/yarn-berry-audit-fix/coverage.svg)](https://qlty.sh/gh/lockgraph/projects/yarn-berry-audit-fix)
 [![npm version](https://img.shields.io/npm/v/yarn-berry-audit-fix/latest?label=npm&color=blue)](https://www.npmjs.com/package/yarn-berry-audit-fix)
 
-Fix vulnerable Yarn Berry dependencies with semver-compatible updates using temporary `resolutions` and Yarn's own install process. For a more comprehensive audit fixer, see [yarn-audit-fix](https://github.com/lockgraph/yarn-audit-fix).
+Fix vulnerable Yarn Berry dependencies with semver-compatible updates using Yarn's own resolution and install process. For a more comprehensive audit fixer, see [yarn-audit-fix](https://github.com/lockgraph/yarn-audit-fix).
 
 ## TL;DR
 
@@ -71,7 +71,7 @@ console.log(report.changes[0]?.advisories);
 
 ## How it works
 
-The tool audits dependencies and selects compatible fixes using the chosen policy. It audits the proposed versions and replans if they have additional vulnerabilities, then adds temporary `resolutions`. Yarn performs one install. The original manifests are restored, lockfile headers regain their original ranges, and the project is audited again. Yarn's generated package records are preserved.
+The tool audits dependencies and selects compatible fixes using the chosen policy. It audits the proposed versions and replans if they have additional vulnerabilities. A temporary plugin passes the complete plan to Yarn through resolution aliases, then Yarn performs one install and writes the complete lockfile. The project is audited again. No plugin configuration or manifest resolutions are added to the project.
 
 ## Known limitations
 

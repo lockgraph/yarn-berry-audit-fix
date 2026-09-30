@@ -91,13 +91,32 @@ it('rejects invalid install state locations before replacing manifests', async (
   await expectRestored(cwd);
 });
 
-it('honors an abort before starting the temporary install and releases the project guard', async () => {
+it('honors an abort before starting the aliases install and releases the project guard', async () => {
   const { cwd, runner } = await project();
   const controller = new AbortController();
   const failure = new Error('Cancelled by user');
   controller.abort(failure);
   await expect(fixAudit({ cwd, runner, signal: controller.signal })).rejects.toBe(failure);
   expect(runner.mock.calls.some(([args]) => args[0] === 'install')).toBe(false);
+  await expectRestored(cwd);
+});
+
+it.each(['exit', 'throw'])('cleans up its temporary plugin and restores manifests after an install %s', async failure => {
+  const { cwd, runner } = await project();
+  const delegate = runner.getMockImplementation()!;
+  let pluginPath = '';
+  runner.mockImplementation(async (args, options) => {
+    if (args[0] !== 'install') return delegate(args, options);
+    pluginPath = options.env.YARN_PLUGINS!.split(';').at(-1)!;
+    expect(await readFile(pluginPath, 'utf8')).toContain('resolutionAliases');
+    expect(await readFile(join(cwd, 'package.json'), 'utf8')).toBe(originalManifest);
+    await writeFile(join(cwd, 'package.json'), 'Partially written manifest');
+    await writeFile(join(cwd, 'yarn.lock'), 'Partially written lockfile');
+    if (failure === 'throw') throw new Error('Install aborted');
+    return { code: 2, stdout: '', stderr: 'Install aborted' };
+  });
+  await expect(fixAudit({ cwd, runner })).rejects.toThrow('Install aborted');
+  await expect(readFile(pluginPath)).rejects.toMatchObject({ code: 'ENOENT' });
   await expectRestored(cwd);
 });
 

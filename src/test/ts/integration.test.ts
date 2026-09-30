@@ -52,6 +52,7 @@ describe.each(managers)('Yarn $version / lockfile v$schema', ({ alias: yarn, ver
       expect(args).toEqual(mode ? ['install', '--mode=update-lockfile'] : ['install']);
       // Before the only install, the input lockfile is unchanged.
       expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(lastYarnLock);
+      expect(await readFile(join(cwd, 'package.json'))).toEqual(original);
       expect(await readFile(join(cwd, backupName))).toEqual(original);
       expect((await stat(join(cwd, backupName))).ino).toBe(originalStat.ino);
       installs++;
@@ -61,8 +62,8 @@ describe.each(managers)('Yarn $version / lockfile v$schema', ({ alias: yarn, ver
     };
     const report = await fixAudit({ cwd, runner: observedRunner, mode });
     expect(installs).toBe(1);
-    const records = (text: string) => new Map(Object.values(parseLockfile(text)).map(entry => [entry.resolution ?? '__metadata', entry]));
-    expect(records(await readFile(join(cwd, 'yarn.lock'), 'utf8'))).toEqual(records(lastYarnLock.toString()));
+    // The complete lockfile is Yarn's output, including its original request headers.
+    expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(lastYarnLock);
     expect(report.changed).toBe(true);
     expect(report.yarnVersion).toBe(version);
     expect(parseLockfile(await readFile(join(cwd, 'yarn.lock'), 'utf8')).__metadata?.version).toBe(String(schema));
@@ -70,7 +71,7 @@ describe.each(managers)('Yarn $version / lockfile v$schema', ({ alias: yarn, ver
     const legacy3 = incompleteLegacy && schema !== 4;
     const expected = !workspace || schema === 4 ? ['1.1.18'] : legacy3 ? ['2.1.4'] : ['1.1.18', '2.1.4'];
     expect(report.changes.map(change => change.to)).toEqual(expected);
-    expect(report.remaining).toHaveLength(legacy3 ? 5 : 0);
+    expect(report.remaining).toEqual([]);
     expect(report.warnings).toHaveLength(incompleteLegacy ? 1 : 0);
     if (incompleteLegacy) expect(report.warnings[0]).toContain('brace-expansion');
     expect(await readFile(join(cwd, 'package.json'))).toEqual(original);
@@ -95,13 +96,14 @@ describe.each(managers)('Yarn $version / lockfile v$schema', ({ alias: yarn, ver
     const args = ['install', '--immutable', ...(version.startsWith('4.') ? ['--check-resolutions'] : [])];
     requireSuccess(await run(args), 'Immutable install after fix');
     expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(fixedLock);
-    const again = await fixAudit({ cwd, runner, mode });
-    if (legacy3) {
-      // Legacy audit exposed the other branch only after the first update.
-      expect(again.changes.map(change => change.to)).toEqual(['1.1.18']);
-      expect(again.remaining).toEqual([]);
-      expect((await fixAudit({ cwd, runner, mode })).changed).toBe(false);
+    if (incompleteLegacy) {
+      // Legacy audit depends on traversal order; bulk must find the unreported branch.
+      const complete = await fixAudit({ cwd, runner, mode, auditRegistry: registry.url });
+      expect(complete.changes.map(change => change.to)).toEqual([legacy3 ? '1.1.18' : '2.1.4']);
+      expect(complete.remaining).toEqual([]);
+      expect((await fixAudit({ cwd, runner, mode, auditRegistry: registry.url })).changed).toBe(false);
     } else {
+      const again = await fixAudit({ cwd, runner, mode });
       expect(again.changed).toBe(false);
       expect(again.before).toEqual([]);
       expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(fixedLock);
@@ -266,7 +268,7 @@ it.each(['install', 'audit'])('restores original files when the %s fails', async
   };
   const fetchFailure = vi.fn().mockResolvedValueOnce(new Response('{}')).mockRejectedValue(new Error('Bulk registry unavailable'));
   vi.stubGlobal('fetch', fetchFailure);
-  await expect(fixAudit({ cwd, runner: failing })).rejects.toThrow(failedStage === 'install' ? 'Temporary resolutions install failed' : 'Yarn audit and bulk fallback failed');
+  await expect(fixAudit({ cwd, runner: failing })).rejects.toThrow(failedStage === 'install' ? 'Resolution aliases install failed' : 'Yarn audit and bulk fallback failed');
   expect(fetchFailure).toHaveBeenCalledTimes(failedStage === 'install' ? 1 : 2);
   const after = await Promise.all(paths.map(path => readFile(join(cwd, path)).catch(() => undefined)));
   expect(after).toEqual(before);
@@ -298,7 +300,7 @@ it('rolls back if the final audit reports the selected version as vulnerable', a
     }
     return runner(args, options);
   };
-  await expect(fixAudit({ cwd, runner: newAdvisory })).rejects.toThrow('Fix did not survive manifest restoration');
+  await expect(fixAudit({ cwd, runner: newAdvisory })).rejects.toThrow('Fix did not produce a safe compatible resolution');
   expect(await readFile(join(cwd, 'yarn.lock'))).toEqual(originalLock);
   expect(await readFile(join(cwd, 'package.json'))).toEqual(originalManifest);
 });
@@ -347,8 +349,10 @@ it.each(['pm-yarn-2', 'pm-yarn-berry-v6', 'pm-yarn-berry-v10'])('rejects a newly
     }
     if (args[0] === 'install') {
       installs++;
-      const manifest = JSON.parse(await readFile(join(cwd, 'package.json'), 'utf8'));
-      expect(Object.values(manifest.resolutions)).toEqual(['npm:1.1.18', 'npm:1.1.18']);
+      expect(await readFile(join(cwd, 'package.json'))).toEqual(originalManifest);
+      const plugin = await readFile(options.env.YARN_PLUGINS!, 'utf8');
+      expect(plugin).toContain('"to":"1.1.18"');
+      expect(plugin).not.toContain('"to":"1.1.12"');
     }
     return runner(args, options);
   };

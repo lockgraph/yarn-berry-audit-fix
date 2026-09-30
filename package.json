@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "description": "An experimental Yarn Berry audit fixer using temporary resolutions",
+  "description": "A Yarn Berry audit fixer using semver-compatible resolution aliases",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lockgraph/yarn-berry-audit-fix.git"

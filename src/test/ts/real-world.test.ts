@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import semver from 'semver';
 import { createPlan, parseAudit, type UpdatePolicy } from '../../main/ts/index.js';
-import { descriptors, npmDescriptor, parseLockfile } from '../../main/ts/lockfile.js';
-import { restoreDescriptorHeaders } from '../../main/ts/patch.js';
+import { npmDescriptor, parseLockfile } from '../../main/ts/lockfile.js';
 import { readFixture, readFixtureManifest } from './build-fixtures.js';
 import { bulk } from './registry.js';
 
@@ -39,24 +38,4 @@ describe.each(projects)('$source / original schema $schema', ({ file, source, sc
     expect(plan.changes.length + plan.skipped.length).toBeGreaterThan(0);
   });
 
-  it('restores a temporary header while preserving the entire native lockfile byte for byte', async () => {
-    const raw = (await readFixture(file)).toString();
-    const lock = parseLockfile(raw);
-    const requests = new Set(Object.values(lock).flatMap(entry => Object.entries(entry.dependencies ?? {})
-      .filter((pair): pair is [string, string] => typeof pair[1] === 'string')
-      .map(([name, range]) => `${name}@${range.includes(':') ? range : `npm:${range}`}`)));
-    const candidate = Object.entries(lock).find(([key, entry]) => {
-      const request = npmDescriptor(key);
-      return !key.includes(', ') && request && entry.version && requests.has(key) && semver.satisfies(entry.version, request.range) &&
-        entry.resolution === `${request.name}@npm:${entry.version}` && !descriptors(lock).has(entry.resolution) && raw.includes(`\n${JSON.stringify(key)}:\n`);
-    });
-    expect(candidate, 'Expected a genuine range descriptor for the header round-trip').toBeDefined();
-    const [descriptor, entry] = candidate!;
-    const name = npmDescriptor(descriptor)!.name;
-    // Change only the request header, as temporary resolutions do. Version selection is checked separately.
-    const temporary = raw.replace(`\n${JSON.stringify(descriptor)}:\n`, `\n${JSON.stringify(entry.resolution)}:\n`);
-    expect(temporary).not.toBe(raw);
-    const restored = restoreDescriptorHeaders(temporary, [{ name, descriptor, from: entry.version!, to: entry.version! }]);
-    expect(restored).toBe(raw);
-  });
 });
